@@ -5,7 +5,7 @@
 # file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 #
 
-find_package(Boost 1.72 REQUIRED COMPONENTS
+find_package(Boost REQUIRED COMPONENTS
     unit_test_framework
     coroutine
 )

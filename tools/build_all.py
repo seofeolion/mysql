@@ -12,9 +12,17 @@ from os import chdir, path
 
 REPO_BASE = path.abspath(path.join(path.dirname(__file__), '..'))
 
+INSTALL_PREFIX = '/tmp/boost_mysql'
+
 BASE_CONFIG = {
     'CMAKE_PREFIX_PATH': '/opt/boost-latest',
-    'CMAKE_INSTALL_PREFIX': '/tmp/boost_mysql'
+    'CMAKE_INSTALL_PREFIX': INSTALL_PREFIX
+}
+
+BASE_CONFIG_STANDALONE = {
+    'CMAKE_PREFIX_PATH': '/opt/boost-latest;/opt/asio',
+    'CMAKE_INSTALL_PREFIX': INSTALL_PREFIX,
+    'BOOST_MYSQL_STANDALONE': 'ON'
 }
 
 CLANG_CONFIG = {
@@ -48,6 +56,10 @@ ALL_CONFIGS = {
     'install': {
         **BASE_CONFIG,
         'BUILD_TESTING': 'OFF'
+    },
+    'install-standalone': {
+        **BASE_CONFIG_STANDALONE,
+        'BUILD_TESTING': 'OFF'
     }
 }
 
@@ -77,7 +89,7 @@ def main():
     cmd(['mkdir', build_dir])
     chdir(build_dir)
     cmd(['cmake'] + cmake_args + ['..'])
-    cmd(['make', '-j4', 'install', 'test'])
+    cmd(['make', '-j4', 'install'])
 
 if __name__ == '__main__':
     main()

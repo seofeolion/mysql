@@ -18,20 +18,14 @@ namespace mysql {
 enum class ssl_mode
 {
     /** Never use TLS
-
-        Test.
      */
     disable,
 
     /** Use TLS if the server supports it, fall back to non-encrypted connection if it does not.
-
-        Test.
      */
     enable,
 
     /** Always use TLS; abort the connection if the server does not support it.
-
-        Test.
      */
     require
 };

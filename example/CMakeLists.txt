@@ -19,6 +19,7 @@ function (build_example EXECUTABLE_NAME CPPFILE)
         Boost::mysql
         Boost::coroutine
     )
+    target_link_directories(${EXECUTABLE_NAME} PRIVATE ${Boost_LIBRARY_DIRS})
     common_target_settings(${EXECUTABLE_NAME})
 endfunction()
 
@@ -29,6 +30,10 @@ function (test_example EXECUTABLE_NAME)
     add_test(
         NAME ${TEST_NAME}
         COMMAND ${EXECUTABLE_PATH} example_user example_password
+    )
+    set_tests_properties(
+        ${TEST_NAME} PROPERTIES
+        ENVIRONMENT LD_LIBRARY_PATH=${Boost_LIBRARY_DIRS}:$ENV{LD_LIBRARY_PATH}
     )
 endfunction()
 

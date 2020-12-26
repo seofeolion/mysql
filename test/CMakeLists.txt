@@ -112,6 +112,11 @@ else()
     )
 endif()
 
+set_tests_properties(
+    boost_mysql_integrationtests PROPERTIES
+    ENVIRONMENT LD_LIBRARY_PATH=${Boost_LIBRARY_DIRS}:$ENV{LD_LIBRARY_PATH}
+)
+
 # If we are using memcheck, then run a subset of the integration tests
 # under valgrind. Coroutine tests don't work well under Valgrind, and
 # SSL tests are too slow. We do some other exclusions to reduce runtime

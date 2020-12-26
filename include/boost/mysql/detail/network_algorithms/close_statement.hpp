@@ -23,7 +23,7 @@ void close_statement(
 );
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
 async_close_statement(
     channel<Stream>& chan,
     std::uint32_t statement_id,

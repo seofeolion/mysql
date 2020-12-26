@@ -119,7 +119,7 @@ std::size_t boost::mysql::detail::channel<Stream>::write_impl(
 
 template <class Stream>
 template <class BufferSeq, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(boost::mysql::error_code, std::size_t))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(boost::mysql::error_code, std::size_t))
 boost::mysql::detail::channel<Stream>::async_read_impl(
     BufferSeq&& buff,
     CompletionToken&& token
@@ -147,7 +147,7 @@ boost::mysql::detail::channel<Stream>::async_read_impl(
 
 template <class Stream>
 template <class BufferSeq, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(boost::mysql::error_code, std::size_t))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(boost::mysql::error_code, std::size_t))
 boost::mysql::detail::channel<Stream>::async_write_impl(
     BufferSeq&& buff,
     CompletionToken&& token
@@ -270,11 +270,11 @@ struct boost::mysql::detail::channel<Stream>::read_op
 
         // Non-error path
         std::uint32_t size_to_read = 0;
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             do
             {
-                BOOST_ASIO_CORO_YIELD chan_.async_read_impl(
+                BOOST_MYSQL_CORO_YIELD chan_.async_read_impl(
                     boost::asio::buffer(chan_.header_buffer_),
                     std::move(self)
                 );
@@ -284,12 +284,12 @@ struct boost::mysql::detail::channel<Stream>::read_op
                 if (code)
                 {
                     self.complete(code);
-                    BOOST_ASIO_CORO_YIELD break;
+                    BOOST_MYSQL_CORO_YIELD break;
                 }
 
                 buffer_.resize(buffer_.size() + size_to_read);
 
-                BOOST_ASIO_CORO_YIELD chan_.async_read_impl(
+                BOOST_MYSQL_CORO_YIELD chan_.async_read_impl(
                     boost::asio::buffer(buffer_.data() + total_transferred_size_, size_to_read),
                     std::move(self)
                 );
@@ -307,7 +307,7 @@ struct boost::mysql::detail::channel<Stream>::read_op
 
 template <class Stream>
 template <class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code)
 )
@@ -357,7 +357,7 @@ struct boost::mysql::detail::channel<Stream>::write_op
 
         // Non-error path
         std::uint32_t size_to_write;
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             // Force write the packet header on an empty packet, at least.
             do
@@ -365,7 +365,7 @@ struct boost::mysql::detail::channel<Stream>::write_op
                 size_to_write = compute_size_to_write(buffer_.size(), total_transferred_size_);
                 chan_.process_header_write(size_to_write);
 
-                BOOST_ASIO_CORO_YIELD chan_.async_write_impl(
+                BOOST_MYSQL_CORO_YIELD chan_.async_write_impl(
                     std::array<boost::asio::const_buffer, 2> {
                         boost::asio::buffer(chan_.header_buffer_),
                         boost::asio::buffer(buffer_ + total_transferred_size_, size_to_write)
@@ -384,7 +384,7 @@ struct boost::mysql::detail::channel<Stream>::write_op
 
 template <class Stream>
 template <class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code)
 )
@@ -411,7 +411,7 @@ void boost::mysql::detail::channel<Stream>::ssl_handshake(
 
 template <class Stream>
 template <class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code)
 )

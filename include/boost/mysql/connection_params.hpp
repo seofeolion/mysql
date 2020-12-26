@@ -8,11 +8,11 @@
 #ifndef BOOST_MYSQL_CONNECTION_PARAMS_HPP
 #define BOOST_MYSQL_CONNECTION_PARAMS_HPP
 
-#include <boost/utility/string_view.hpp>
+#include "boost/mysql/detail/config.hpp"
+#include "boost/mysql/string_view.hpp"
 #include "boost/mysql/collation.hpp"
 
-namespace boost {
-namespace mysql {
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /// Determines whether to use TLS for the connection or not.
 enum class ssl_mode
@@ -60,9 +60,9 @@ public:
  */
 class connection_params
 {
-    boost::string_view username_;
-    boost::string_view password_;
-    boost::string_view database_;
+    string_view username_;
+    string_view password_;
+    string_view database_;
     collation connection_collation_;
     ssl_options ssl_;
 public:
@@ -76,9 +76,9 @@ public:
      * \param opts The [reflink2 ssl_options TLS options] to use with this connection.
      */
     connection_params(
-        boost::string_view username,
-        boost::string_view password,
-        boost::string_view db = "",
+        string_view username,
+        string_view password,
+        string_view db = "",
         collation connection_col = collation::utf8_general_ci,
         const ssl_options& opts = ssl_options()
     ) :
@@ -91,22 +91,22 @@ public:
     }
 
     /// Retrieves the username.
-    boost::string_view username() const noexcept { return username_; }
+    string_view username() const noexcept { return username_; }
 
     /// Sets the username.
-    void set_username(boost::string_view value) noexcept { username_ = value; }
+    void set_username(string_view value) noexcept { username_ = value; }
 
     /// Retrieves the password.
-    boost::string_view password() const noexcept { return password_; }
+    string_view password() const noexcept { return password_; }
 
     /// Sets the password
-    void set_password(boost::string_view value) noexcept { password_ = value; }
+    void set_password(string_view value) noexcept { password_ = value; }
 
     /// Retrieves the database.
-    boost::string_view database() const noexcept { return database_; }
+    string_view database() const noexcept { return database_; }
 
     /// Sets the database
-    void set_database(boost::string_view value) noexcept { database_ = value; }
+    void set_database(string_view value) noexcept { database_ = value; }
 
     /// Retrieves the connection collation.
     collation connection_collation() const noexcept { return connection_collation_; }
@@ -121,9 +121,7 @@ public:
     void set_ssl(const ssl_options& value) noexcept { ssl_ = value; }
 };
 
-} // mysql
-} // boost
-
+BOOST_MYSQL_NAMESPACE_END
 
 
 #endif /* INCLUDE_BOOST_MYSQL_CONNECTION_PARAMS_HPP_ */

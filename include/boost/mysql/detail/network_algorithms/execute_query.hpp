@@ -26,7 +26,7 @@ void execute_query(
 );
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
 async_execute_query(
     channel<Stream>& chan,
     boost::string_view query,

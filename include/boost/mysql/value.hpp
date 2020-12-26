@@ -8,19 +8,19 @@
 #ifndef BOOST_MYSQL_VALUE_HPP
 #define BOOST_MYSQL_VALUE_HPP
 
+#include "boost/mysql/detail/config.hpp"
 #include <cstdint>
-#include <boost/utility/string_view.hpp>
 #include <chrono>
 #include <ostream>
 #include <array>
-#include <boost/variant2/variant.hpp>
+#include "boost/mysql/string_view.hpp"
+#include "boost/mysql/variant.hpp"
 #include <boost/optional/optional.hpp>
 #ifndef BOOST_NO_CXX17_HDR_OPTIONAL
 #include <optional>
 #endif
 
-namespace boost {
-namespace mysql {
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /**
  * \brief Duration representing a day (24 hours).
@@ -58,7 +58,7 @@ class value
 {
 public:
     /// Type of a variant representing the value.
-    using variant_type = boost::variant2::variant<
+    using variant_type = variant<
         std::nullptr_t,    // Any of the below when the value is NULL
         std::int64_t,      // signed TINYINT, SMALLINT, MEDIUMINT, INT, BIGINT
         std::uint64_t,     // unsigned TINYINT, SMALLINT, MEDIUMINT, INT, BIGINT, YEAR
@@ -71,7 +71,7 @@ public:
     >;
 
     /// Constructs a NULL value.
-    BOOST_CXX14_CONSTEXPR value() = default;
+    BOOST_MYSQL_CXX14_CONSTEXPR value() = default;
 
     /**
      * \brief Initialization constructor.
@@ -90,16 +90,16 @@ public:
      *  - `value("test")` yields `boost::string_view`.
      */
     template <class T>
-    explicit BOOST_CXX14_CONSTEXPR value(const T& v) noexcept;
+    explicit BOOST_MYSQL_CXX14_CONSTEXPR value(const T& v) noexcept;
 
     /**
      * \brief Checks if the value is NULL.
      * \details Returns `true` only if the value's current type alternative
      * is `std::nullptr_t`. Equivalent to `value::is<std::nullptr_t>()`.
      */
-    BOOST_CXX14_CONSTEXPR bool is_null() const noexcept
+    BOOST_MYSQL_CXX14_CONSTEXPR bool is_null() const noexcept
     {
-        return boost::variant2::holds_alternative<std::nullptr_t>(repr_);
+        return detail::variant_ns::holds_alternative<std::nullptr_t>(repr_);
     }
 
     /**
@@ -112,9 +112,9 @@ public:
      * into account. This function is faster than [refmem value is_convertible_to].
      */
     template <class T>
-    BOOST_CXX14_CONSTEXPR bool is() const noexcept
+    BOOST_MYSQL_CXX14_CONSTEXPR bool is() const noexcept
     {
-        return boost::variant2::holds_alternative<T>(repr_);
+        return detail::variant_ns::holds_alternative<T>(repr_);
     }
 
     /**
@@ -131,7 +131,7 @@ public:
      * [refmem value get_std_optional] and check the returned optional instead.
      */
     template <class T>
-    BOOST_CXX14_CONSTEXPR bool is_convertible_to() const noexcept
+    BOOST_MYSQL_CXX14_CONSTEXPR bool is_convertible_to() const noexcept
     {
         return get_optional<T>().has_value();
     }
@@ -147,6 +147,7 @@ public:
     template <class T>
     T get() const;
 
+#ifndef BOOST_MYSQL_STANDALONE
     /**
      * \brief Retrieves the stored value as a __boost_optional__.
      * \details `T` should be one of [refmem value variant_type]'s type alternatives.
@@ -157,8 +158,9 @@ public:
      */
     template <class T>
     boost::optional<T> get_optional() const noexcept;
+#endif // BOOST_MYSQL_STANDALONE
 
-#ifndef BOOST_NO_CXX17_HDR_OPTIONAL
+#ifdef BOOST_MYSQL_HAS_STD_OPTIONAL
     /**
      * \brief Retrieves the stored value as a `std::optional`.
      * \details `T` should be one of [refmem value variant_type]'s type alternatives.
@@ -169,26 +171,26 @@ public:
      */
     template <class T>
     constexpr std::optional<T> get_std_optional() const noexcept;
-#endif
+#endif // BOOST_MYSQL_HAS_STD_OPTIONAL
 
     /// Converts a value to an actual variant of type [refmem value variant_type].
-    BOOST_CXX14_CONSTEXPR variant_type to_variant() const noexcept { return repr_; }
+    BOOST_MYSQL_CXX14_CONSTEXPR variant_type to_variant() const noexcept { return repr_; }
 
     /// Tests for equality (type and value).
-    BOOST_CXX14_CONSTEXPR bool operator==(const value& rhs) const noexcept { return repr_ == rhs.repr_; }
+    BOOST_MYSQL_CXX14_CONSTEXPR bool operator==(const value& rhs) const noexcept { return repr_ == rhs.repr_; }
 
     /// Tests for inequality (type and value).
-    BOOST_CXX14_CONSTEXPR bool operator!=(const value& rhs) const noexcept { return !(*this==rhs); }
+    BOOST_MYSQL_CXX14_CONSTEXPR bool operator!=(const value& rhs) const noexcept { return !(*this==rhs); }
 private:
     struct unsigned_int_tag {};
     struct signed_int_tag {};
     struct no_tag {};
 
-    BOOST_CXX14_CONSTEXPR value(std::uint64_t val, unsigned_int_tag) noexcept : repr_(val) {}
-    BOOST_CXX14_CONSTEXPR value(std::int64_t val, signed_int_tag) noexcept : repr_(val) {}
+    BOOST_MYSQL_CXX14_CONSTEXPR value(std::uint64_t val, unsigned_int_tag) noexcept : repr_(val) {}
+    BOOST_MYSQL_CXX14_CONSTEXPR value(std::int64_t val, signed_int_tag) noexcept : repr_(val) {}
 
     template <class T>
-    BOOST_CXX14_CONSTEXPR value(const T& val, no_tag) noexcept : repr_(val) {}
+    BOOST_MYSQL_CXX14_CONSTEXPR value(const T& val, no_tag) noexcept : repr_(val) {}
 
     variant_type repr_;
 };
@@ -214,19 +216,19 @@ inline std::ostream& operator<<(std::ostream& os, const value& v);
  * to construct a [reflink value] out of every single argument passed in.
  */
 template <class... Types>
-BOOST_CXX14_CONSTEXPR std::array<value, sizeof...(Types)> make_values(Types&&... args);
+BOOST_MYSQL_CXX14_CONSTEXPR std::array<value, sizeof...(Types)> make_values(Types&&... args);
 
 /// The minimum allowed value for [reflink date] (0000-01-01).
-BOOST_CXX14_CONSTEXPR const date min_date { days(-719528) };
+BOOST_MYSQL_CXX14_CONSTEXPR const date min_date { days(-719528) };
 
 /// The maximum allowed value for [reflink date] (9999-12-31).
-BOOST_CXX14_CONSTEXPR const date max_date { days(2932896) };
+BOOST_MYSQL_CXX14_CONSTEXPR const date max_date { days(2932896) };
 
 /// The minimum allowed value for [reflink datetime].
-BOOST_CXX14_CONSTEXPR const datetime min_datetime = min_date;
+BOOST_MYSQL_CXX14_CONSTEXPR const datetime min_datetime = min_date;
 
 /// The maximum allowed value for [reflink datetime].
-BOOST_CXX14_CONSTEXPR const datetime max_datetime = max_date + std::chrono::hours(24) - std::chrono::microseconds(1);
+BOOST_MYSQL_CXX14_CONSTEXPR const datetime max_datetime = max_date + std::chrono::hours(24) - std::chrono::microseconds(1);
 
 /// The minimum allowed value for [reflink time].
 constexpr time min_time = -std::chrono::hours(839);
@@ -234,8 +236,7 @@ constexpr time min_time = -std::chrono::hours(839);
 /// The maximum allowed value for [reflink time].
 constexpr time max_time = std::chrono::hours(839);
 
-} // mysql
-} // boost
+BOOST_MYSQL_NAMESPACE_END
 
 #include "boost/mysql/impl/value.hpp"
 

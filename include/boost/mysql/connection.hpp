@@ -9,6 +9,8 @@
 #define BOOST_MYSQL_CONNECTION_HPP
 
 #ifndef BOOST_MYSQL_DOXYGEN // For some arcane reason, Doxygen fails to expand Asio macros without this
+
+#include "boost/mysql/detail/config.hpp"
 #include "boost/mysql/detail/protocol/channel.hpp"
 #include "boost/mysql/detail/protocol/protocol_types.hpp"
 #include "boost/mysql/detail/network_algorithms/handshake.hpp"
@@ -16,15 +18,20 @@
 #include "boost/mysql/resultset.hpp"
 #include "boost/mysql/prepared_statement.hpp"
 #include "boost/mysql/connection_params.hpp"
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/local/stream_protocol.hpp>
-#endif
+#include "boost/mysql/asio_streams.hpp"
+
+#endif //BOOST_MYSQL_DOXYGEN
 
 /// The Boost libraries namespace.
 namespace boost {
 
 /// Boost.Mysql library namespace.
 namespace mysql {
+
+} // mysql
+} // boost
+
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /**
  * \brief A connection to a MySQL server. See the following sections for how to use
@@ -141,14 +148,14 @@ public:
      * The handler signature for this operation is `void(boost::mysql::error_code)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_handshake(
         const connection_params& params,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     )
     {
         return async_handshake(params, shared_info(), std::forward<CompletionToken>(token));
@@ -164,15 +171,15 @@ public:
      * The handler signature for this operation is `void(boost::mysql::error_code)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_handshake(
         const connection_params& params,
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /**
@@ -183,7 +190,7 @@ public:
      * before calling any function that involves communication with the server over this
      * connection. Otherwise, the results are undefined.
      */
-    resultset<Stream> query(boost::string_view query_string, error_code&, error_info&);
+    resultset<Stream> query(string_view query_string, error_code&, error_info&);
 
     /**
      * \brief Executes a SQL text query (sync with exceptions version).
@@ -193,7 +200,7 @@ public:
      * before calling any function that involves communication with the server over this
      * connection. Otherwise, the results are undefined.
      */
-    resultset<Stream> query(boost::string_view query_string);
+    resultset<Stream> query(string_view query_string);
 
     /**
      * \brief Executes a SQL text query (async without [reflink error_info] version).
@@ -207,14 +214,14 @@ public:
      * `void(boost::mysql::error_code, boost::mysql::resultset<Stream>)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, resultset<Stream>))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, resultset<Stream>))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
     async_query(
-        boost::string_view query_string,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        string_view query_string,
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     )
     {
         return async_query(query_string, shared_info(), std::forward<CompletionToken>(token));
@@ -232,15 +239,15 @@ public:
      * `void(boost::mysql::error_code, boost::mysql::resultset<Stream>)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, resultset<Stream>))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, resultset<Stream>))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
     async_query(
-        boost::string_view query_string,
+        string_view query_string,
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /**
@@ -249,7 +256,7 @@ public:
      * Prepared statements are only valid while the connection object on which
      * this function was called is alive and open.
      */
-    prepared_statement<Stream> prepare_statement(boost::string_view statement, error_code&, error_info&);
+    prepared_statement<Stream> prepare_statement(string_view statement, error_code&, error_info&);
 
     /**
      * \brief Prepares a statement (sync with exceptions version).
@@ -257,7 +264,7 @@ public:
      * Prepared statements are only valid while the connection object on which
      * this function was called is alive and open.
      */
-    prepared_statement<Stream> prepare_statement(boost::string_view statement);
+    prepared_statement<Stream> prepare_statement(string_view statement);
 
     /**
      * \brief Prepares a statement (async without [reflink error_info] version).
@@ -269,14 +276,14 @@ public:
      * `void(boost::mysql::error_code, boost::mysql::prepared_statement<Stream>)`
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, prepared_statement<Stream>))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, prepared_statement<Stream>))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, prepared_statement<Stream>))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, prepared_statement<Stream>))
     async_prepare_statement(
-        boost::string_view statement,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        string_view statement,
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     )
     {
         return async_prepare_statement(statement, shared_info(), std::forward<CompletionToken>(token));
@@ -292,15 +299,15 @@ public:
      * `void(boost::mysql::error_code, boost::mysql::prepared_statement<Stream>)`
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, prepared_statement<Stream>))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, prepared_statement<Stream>))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, prepared_statement<Stream>))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, prepared_statement<Stream>))
     async_prepare_statement(
-        boost::string_view statement,
+        string_view statement,
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /**
@@ -340,12 +347,12 @@ public:
      * The handler signature for this operation is `void(boost::mysql::error_code)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
-    async_quit(CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    async_quit(CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type))
     {
         return async_quit(shared_info(), std::forward<CompletionToken>(token));
     }
@@ -363,14 +370,14 @@ public:
      * The handler signature for this operation is `void(boost::mysql::error_code)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_quit(
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /// Rebinds the connection type to another executor.
@@ -399,7 +406,7 @@ public:
  * [reflink connection] apply.
  */
 template<
-class Stream
+    class Stream
 >
 class socket_connection : public connection<Stream>
 {
@@ -443,15 +450,15 @@ public:
      * The handler signature for this operation is `void(boost::mysql::error_code)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_connect(
         const endpoint_type& endpoint,
         const connection_params& params,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     )
     {
         return async_connect(endpoint, params, this->shared_info(), std::forward<CompletionToken>(token));
@@ -471,16 +478,16 @@ public:
      * The handler signature for this operation is `void(boost::mysql::error_code)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_connect(
         const endpoint_type& endpoint,
         const connection_params& params,
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /**
@@ -505,12 +512,12 @@ public:
      * The handler signature for this operation is `void(boost::mysql::error_code)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
-    async_close(CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    async_close(CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type))
     {
         return async_close(this->shared_info(), std::forward<CompletionToken>(token));
     }
@@ -523,14 +530,14 @@ public:
      * The handler signature for this operation is `void(boost::mysql::error_code)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_close(
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /// Rebinds the connection type to another executor.
@@ -545,20 +552,19 @@ public:
 };
 
 /// A connection to MySQL over a TCP socket.
-using tcp_connection = socket_connection<boost::asio::ip::tcp::socket>;
+using tcp_connection = socket_connection<tcp_socket>;
 
-#if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS) || defined(BOOST_MYSQL_DOXYGEN)
+#if defined(BOOST_MYSQL_HAS_LOCAL_SOCKETS) || defined(BOOST_MYSQL_DOXYGEN)
 
 /// A connection to MySQL over a UNIX domain socket.
-using unix_connection = socket_connection<boost::asio::local::stream_protocol::socket>;
+using unix_connection = socket_connection<unix_socket>;
 
 #endif
 
 /// The default TCP port for the MySQL protocol.
 constexpr unsigned short default_port = 3306;
 
-} // mysql
-} // boost
+BOOST_MYSQL_NAMESPACE_END
 
 #include "boost/mysql/impl/connection.hpp"
 

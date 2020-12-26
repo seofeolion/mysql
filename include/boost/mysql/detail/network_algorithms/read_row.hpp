@@ -37,7 +37,7 @@ read_row_result read_row(
 );
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, read_row_result))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, read_row_result))
 async_read_row(
     deserialize_row_fn deserializer,
     channel<Stream>& channel,

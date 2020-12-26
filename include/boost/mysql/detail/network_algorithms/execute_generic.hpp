@@ -27,7 +27,7 @@ void execute_generic(
 );
 
 template <class Stream, class Serializable, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
 async_execute_generic(
     deserialize_row_fn deserializer,
     channel<Stream>& chan,

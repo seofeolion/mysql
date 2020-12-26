@@ -181,10 +181,10 @@ ERRC_TEMPLATE = '''
 #ifndef BOOST_MYSQL_ERRC_HPP
 #define BOOST_MYSQL_ERRC_HPP
 
+#include "boost/mysql/detail/config.hpp"
 #include <iosfwd>
 
-namespace boost {{
-namespace mysql {{
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /**
  * \\brief MySQL-specific error codes.
@@ -205,8 +205,7 @@ enum class errc : int
   */
 inline std::ostream& operator<<(std::ostream&, errc);
 
-}} // mysql
-}} // boost
+BOOST_MYSQL_NAMESPACE_END
 
 #endif
 '''
@@ -217,8 +216,7 @@ DESCRIPTIONS_TEMPLATE='''
 
 #include "boost/mysql/errc.hpp"
 
-namespace boost {{
-namespace mysql {{
+BOOST_MYSQL_NAMESPACE_BEGIN
 namespace detail {{
 
 struct error_entry
@@ -232,8 +230,7 @@ constexpr error_entry all_errors [] = {{
 }};
 
 }} // detail
-}} // mysql
-}} // boost
+BOOST_MYSQL_NAMESPACE_END
 
 #endif
 '''

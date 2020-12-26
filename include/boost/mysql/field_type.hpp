@@ -8,11 +8,11 @@
 #ifndef BOOST_MYSQL_FIELD_TYPE_HPP
 #define BOOST_MYSQL_FIELD_TYPE_HPP
 
+#include "boost/mysql/detail/config.hpp"
 #include <cstdint>
 #include <ostream>
 
-namespace boost {
-namespace mysql {
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /**
  * \brief Represents the type of a MySQL field.
@@ -88,9 +88,7 @@ inline std::ostream& operator<<(std::ostream& os, field_type t)
     }
 }
 
-} // mysql
-} // boost
-
+BOOST_MYSQL_NAMESPACE_END
 
 
 #endif

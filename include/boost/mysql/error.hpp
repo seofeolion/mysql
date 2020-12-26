@@ -8,16 +8,26 @@
 #ifndef BOOST_MYSQL_ERROR_HPP
 #define BOOST_MYSQL_ERROR_HPP
 
-#include <boost/system/error_code.hpp>
+#include "boost/mysql/detail/config.hpp"
 #include <string>
 #include <ostream>
 #include "boost/mysql/errc.hpp"
 
-namespace boost {
-namespace mysql {
+#ifdef BOOST_MYSQL_STANDALONE
+#include <asio/error_code.hpp>
+#else
+#include <boost/system/error_code.hpp>
+#endif // BOOST_MYSQL_STANDALONE
 
+BOOST_MYSQL_NAMESPACE_BEGIN
+
+// TODO: docs
+#ifdef BOOST_MYSQL_STANDALONE
+using error_code = asio::error_code;
+#else
 /// An alias for boost::system error codes.
 using error_code = boost::system::error_code;
+#endif
 
 /**
  * \brief Additional information about error conditions
@@ -63,8 +73,7 @@ inline bool operator!=(const error_info& lhs, const error_info& rhs) noexcept { 
  */
 inline std::ostream& operator<<(std::ostream& os, const error_info& v) { return os << v.message(); }
 
-} // mysql
-} // boost
+BOOST_MYSQL_NAMESPACE_END
 
 #include "boost/mysql/impl/error.hpp"
 

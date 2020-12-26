@@ -52,18 +52,18 @@ struct close_connection_op : boost::asio::coroutine
     )
     {
         error_code close_err;
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             if (!chan_.next_layer().is_open())
             {
-                BOOST_ASIO_CORO_YIELD boost::asio::post(std::move(self));
+                BOOST_MYSQL_CORO_YIELD boost::asio::post(std::move(self));
                 self.complete(error_code());
-                BOOST_ASIO_CORO_YIELD break;
+                BOOST_MYSQL_CORO_YIELD break;
             }
 
             // We call close regardless of the quit outcome
             // There are no async versions of shutdown or close
-            BOOST_ASIO_CORO_YIELD async_quit_connection(
+            BOOST_MYSQL_CORO_YIELD async_quit_connection(
                 chan_,
                 std::move(self),
                 output_info_
@@ -79,7 +79,7 @@ struct close_connection_op : boost::asio::coroutine
 }
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code)
 )

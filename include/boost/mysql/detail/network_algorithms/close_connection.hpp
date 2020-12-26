@@ -22,7 +22,7 @@ void close_connection(
 );
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
 async_close_connection(
     channel<Stream>& chan,
     CompletionToken&& token,

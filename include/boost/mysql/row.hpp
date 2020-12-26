@@ -8,14 +8,14 @@
 #ifndef BOOST_MYSQL_ROW_HPP
 #define BOOST_MYSQL_ROW_HPP
 
+#include "boost/mysql/detail/config.hpp"
 #include "boost/mysql/detail/auxiliar/bytestring.hpp"
 #include "boost/mysql/detail/auxiliar/container_equals.hpp"
 #include "boost/mysql/value.hpp"
 #include "boost/mysql/metadata.hpp"
 #include <algorithm>
 
-namespace boost {
-namespace mysql {
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /**
  * \brief Represents a row returned from a query.
@@ -99,9 +99,6 @@ inline std::ostream& operator<<(std::ostream& os, const row& value)
     return os << '}';
 }
 
-} // mysql
-} // boost
-
-
+BOOST_MYSQL_NAMESPACE_END
 
 #endif

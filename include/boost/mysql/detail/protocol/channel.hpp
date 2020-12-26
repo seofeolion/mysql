@@ -9,6 +9,7 @@
 #define BOOST_MYSQL_DETAIL_PROTOCOL_CHANNEL_HPP
 
 #include "boost/mysql/error.hpp"
+#include "boost/mysql/detail/auxiliar/optional.hpp"
 #include "boost/mysql/detail/auxiliar/bytestring.hpp"
 #include "boost/mysql/detail/protocol/capabilities.hpp"
 #include <boost/asio/buffer.hpp>
@@ -39,7 +40,7 @@ class channel
     };
 
     Stream stream_;
-    boost::optional<ssl_block> ssl_block_;
+    optional<ssl_block> ssl_block_;
     std::uint8_t sequence_number_ {0};
     std::array<std::uint8_t, 4> header_buffer_ {}; // for async ops
     bytestring shared_buff_; // for async ops
@@ -61,11 +62,11 @@ class channel
     std::size_t write_impl(BufferSeq&& buff, error_code& ec);
 
     template <class BufferSeq, class CompletionToken>
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::size_t))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::size_t))
     async_read_impl(BufferSeq&& buff, CompletionToken&& token);
 
     template <class BufferSeq, class CompletionToken>
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::size_t))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::size_t))
     async_write_impl(BufferSeq&& buff, CompletionToken&& token);
 
     struct read_op;
@@ -82,7 +83,7 @@ public:
     void read(bytestring& buffer, error_code& code);
 
     template <class CompletionToken>
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_read(bytestring& buffer, CompletionToken&& token);
 
     // Writing
@@ -93,11 +94,11 @@ public:
     }
 
     template <class CompletionToken>
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_write(boost::asio::const_buffer buffer, CompletionToken&& token);
 
     template <class CompletionToken>
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_write(const bytestring& buffer, CompletionToken&& token)
     {
         return async_write(boost::asio::buffer(buffer), std::forward<CompletionToken>(token));
@@ -109,7 +110,7 @@ public:
     void ssl_handshake(error_code& ec);
 
     template <class CompletionToken>
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_ssl_handshake(CompletionToken&& token);
 
     // Closing (only available for sockets)

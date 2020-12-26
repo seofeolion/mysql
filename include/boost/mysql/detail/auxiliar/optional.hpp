@@ -7,20 +7,22 @@
 
 #include "boost/mysql/detail/config.hpp"
 
-// TODO: document
-
 #ifdef BOOST_MYSQL_STANDALONE
-#include <string_view>
+#include <optional>
 #else
-#include <boost/utility/string_view.hpp>
+#include <boost/optional.hpp>
 #endif // BOOST_MYSQL_STANDALONE
 
 BOOST_MYSQL_NAMESPACE_BEGIN
+namespace detail {
 
 #ifdef BOOST_MYSQL_STANDALONE
-using string_view = std::string_view;
+template <class T>
+using optional = std::optional<T>;
 #else
-using string_view = boost::string_view;
+template <class T>
+using optional = boost::optional<T>;
 #endif // BOOST_MYSQL_STANDALONE
 
+} // detail
 BOOST_MYSQL_NAMESPACE_END

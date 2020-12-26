@@ -8,10 +8,10 @@
 #ifndef BOOST_MYSQL_COLLATION_HPP
 #define BOOST_MYSQL_COLLATION_HPP
 
+#include "boost/mysql/detail/config.hpp"
 #include <cstdint>
 
-namespace boost {
-namespace mysql {
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /**
  * \brief A character set and a collation.
@@ -245,9 +245,6 @@ enum class collation : std::uint16_t
     gb18030_unicode_520_ci = 250
 };
 
-} // mysql
-} // boost
-
-
+BOOST_MYSQL_NAMESPACE_END
 
 #endif

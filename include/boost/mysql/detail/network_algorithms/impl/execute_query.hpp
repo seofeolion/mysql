@@ -34,7 +34,7 @@ void boost::mysql::detail::execute_query(
 
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code, boost::mysql::resultset<Stream>)
 )

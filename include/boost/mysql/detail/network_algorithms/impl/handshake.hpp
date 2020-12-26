@@ -276,17 +276,17 @@ struct handshake_op : boost::asio::coroutine
         }
 
         // Non-error path
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             // Read server greeting
-            BOOST_ASIO_CORO_YIELD chan_.async_read(chan_.shared_buffer(), std::move(self));
+            BOOST_MYSQL_CORO_YIELD chan_.async_read(chan_.shared_buffer(), std::move(self));
 
             // Process server greeting
             err = processor_.process_handshake(chan_.shared_buffer(), output_info_);
             if (err)
             {
                 self.complete(err);
-                BOOST_ASIO_CORO_YIELD break;
+                BOOST_MYSQL_CORO_YIELD break;
             }
             chan_.set_current_capabilities(processor_.negotiated_capabilities());
 
@@ -295,20 +295,20 @@ struct handshake_op : boost::asio::coroutine
             {
                 // Send SSL request
                 processor_.compose_ssl_request(chan_.shared_buffer());
-                BOOST_ASIO_CORO_YIELD chan_.async_write(chan_.shared_buffer(), std::move(self));
+                BOOST_MYSQL_CORO_YIELD chan_.async_write(chan_.shared_buffer(), std::move(self));
 
                 // SSL handshake
-                BOOST_ASIO_CORO_YIELD chan_.async_ssl_handshake(std::move(self));
+                BOOST_MYSQL_CORO_YIELD chan_.async_ssl_handshake(std::move(self));
             }
 
             // Compose and send handshake response
             processor_.compose_handshake_response(chan_.shared_buffer());
-            BOOST_ASIO_CORO_YIELD chan_.async_write(chan_.shared_buffer(), std::move(self));
+            BOOST_MYSQL_CORO_YIELD chan_.async_write(chan_.shared_buffer(), std::move(self));
 
             while (auth_state_ != auth_result::complete)
             {
                 // Receive response
-                BOOST_ASIO_CORO_YIELD chan_.async_read(chan_.shared_buffer(), std::move(self));
+                BOOST_MYSQL_CORO_YIELD chan_.async_read(chan_.shared_buffer(), std::move(self));
 
                 // Process it
                 err = processor_.process_handshake_server_response(
@@ -319,13 +319,13 @@ struct handshake_op : boost::asio::coroutine
                 if (err)
                 {
                     self.complete(err);
-                    BOOST_ASIO_CORO_YIELD break;
+                    BOOST_MYSQL_CORO_YIELD break;
                 }
 
                 if (auth_state_ == auth_result::send_more_data)
                 {
                     // We received an auth switch response and we have the response ready to be sent
-                    BOOST_ASIO_CORO_YIELD chan_.async_write(chan_.shared_buffer(), std::move(self));
+                    BOOST_MYSQL_CORO_YIELD chan_.async_write(chan_.shared_buffer(), std::move(self));
                 }
             }
 
@@ -406,7 +406,7 @@ void boost::mysql::detail::handshake(
 }
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code)
 )

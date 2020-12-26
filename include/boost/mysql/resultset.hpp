@@ -8,18 +8,17 @@
 #ifndef BOOST_MYSQL_RESULTSET_HPP
 #define BOOST_MYSQL_RESULTSET_HPP
 
+#include "boost/mysql/detail/config.hpp"
 #include "boost/mysql/row.hpp"
 #include "boost/mysql/metadata.hpp"
 #include "boost/mysql/detail/protocol/common_messages.hpp"
 #include "boost/mysql/detail/protocol/channel.hpp"
 #include "boost/mysql/detail/auxiliar/bytestring.hpp"
 #include "boost/mysql/detail/network_algorithms/common.hpp" // deserialize_row_fn
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/local/stream_protocol.hpp>
+#include "boost/mysql/asio_streams.hpp"
 #include <cassert>
 
-namespace boost {
-namespace mysql {
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /**
  * \brief Represents tabular data retrieved from the MySQL server.
@@ -117,12 +116,12 @@ class resultset
      * `void(boost::mysql::error_code, const boost::mysql::row*)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, const row*))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, const row*))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, const row*))
-    async_fetch_one(CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, const row*))
+    async_fetch_one(CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type))
     {
         return async_fetch_one(shared_info(), std::forward<CompletionToken>(token));
     }
@@ -142,14 +141,14 @@ class resultset
      * `void(boost::mysql::error_code, const boost::mysql::row*)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, const row*))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, const row*))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, const row*))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, const row*))
     async_fetch_one(
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /**
@@ -178,14 +177,14 @@ class resultset
      * `void(boost::mysql::error_code, std::vector<boost::mysql::owning_row>)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, std::vector<owning_row>))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, std::vector<owning_row>))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::vector<owning_row>))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::vector<owning_row>))
     async_fetch_many(
         std::size_t count,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     )
     {
         return async_fetch_many(count, shared_info(), std::forward<CompletionToken>(token));
@@ -201,15 +200,15 @@ class resultset
      * `void(boost::mysql::error_code, std::vector<boost::mysql::owning_row>)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, std::vector<owning_row>))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, std::vector<owning_row>))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::vector<owning_row>))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::vector<owning_row>))
     async_fetch_many(
         std::size_t count,
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /**
@@ -235,12 +234,12 @@ class resultset
      * `void(boost::mysql::error_code, std::vector<boost::mysql::owning_row>)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, std::vector<owning_row>))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, std::vector<owning_row>))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::vector<owning_row>))
-    async_fetch_all(CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::vector<owning_row>))
+    async_fetch_all(CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type))
     {
         return async_fetch_all(shared_info(), std::forward<CompletionToken>(token));
     }
@@ -254,14 +253,14 @@ class resultset
      * `void(boost::mysql::error_code, std::vector<boost::mysql::owning_row>)`.
      */
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(error_code, std::vector<owning_row>))
+        BOOST_MYSQL_COMPLETION_TOKEN_FOR(void(error_code, std::vector<owning_row>))
         CompletionToken
-        BOOST_ASIO_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
+        BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN_TYPE(executor_type)
     >
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::vector<owning_row>))
+    BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, std::vector<owning_row>))
     async_fetch_all(
         error_info& output_info,
-        CompletionToken&& token BOOST_ASIO_DEFAULT_COMPLETION_TOKEN(executor_type)
+        CompletionToken&& token BOOST_MYSQL_DEFAULT_COMPLETION_TOKEN(executor_type)
     );
 
     /**
@@ -325,17 +324,16 @@ class resultset
 };
 
 /// A resultset associated with a [reflink tcp_connection].
-using tcp_resultset = resultset<boost::asio::ip::tcp::socket>;
+using tcp_resultset = resultset<tcp_socket>;
 
-#if defined(BOOST_ASIO_HAS_LOCAL_SOCKETS) || defined(BOOST_MYSQL_DOXYGEN)
+#if defined(BOOST_MYSQL_HAS_LOCAL_SOCKETS) || defined(BOOST_MYSQL_DOXYGEN)
 
 /// A resultset associated with a [reflink unix_connection].
-using unix_resultset = resultset<boost::asio::local::stream_protocol::socket>;
+using unix_resultset = resultset<unix_socket>;
 
 #endif
 
-} // mysql
-} // boost
+BOOST_MYSQL_NAMESPACE_END
 
 #include "boost/mysql/impl/resultset.hpp"
 

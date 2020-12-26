@@ -8,12 +8,12 @@
 #ifndef BOOST_MYSQL_METADATA_HPP
 #define BOOST_MYSQL_METADATA_HPP
 
+#include "boost/mysql/detail/config.hpp"
 #include "boost/mysql/detail/protocol/common_messages.hpp"
 #include "boost/mysql/detail/auxiliar/bytestring.hpp"
 #include "boost/mysql/field_type.hpp"
 
-namespace boost {
-namespace mysql {
+BOOST_MYSQL_NAMESPACE_BEGIN
 
 /**
  * \brief Holds [link mysql.resultsets.metadata metadata] about a field in a SQL query.
@@ -41,21 +41,21 @@ public:
 #endif
 
     /// Returns the name of the database (schema) the field belongs to.
-    boost::string_view database() const noexcept { return msg_.schema.value; }
+    string_view database() const noexcept { return msg_.schema.value; }
 
     /**
      * \brief Returns the name of the virtual table the field belongs to.
      * \details If the table was aliased, this will be the name of the alias
      * (e.g. in `"SELECT * FROM employees emp"`, `table()` will be `"emp"`).
      */
-    boost::string_view table() const noexcept { return msg_.table.value; }
+    string_view table() const noexcept { return msg_.table.value; }
 
     /**
      * \brief Returns the name of the physical table the field belongs to.
      * \details E.g. in `"SELECT * FROM employees emp"`,
      * `original_table()` will be `"employees"`.
      */
-    boost::string_view original_table() const noexcept { return msg_.org_table.value; }
+    string_view original_table() const noexcept { return msg_.org_table.value; }
 
     /**
      * \brief Returns the actual name of the field.
@@ -63,14 +63,14 @@ public:
      * (e.g. in `"SELECT id AS employee_id FROM employees"`,
      * `field_name()` will be `"employee_id"`).
      */
-    boost::string_view field_name() const noexcept { return msg_.name.value; }
+    string_view field_name() const noexcept { return msg_.name.value; }
 
     /**
      * \brief Returns the original (physical) name of the field.
      * \details E.g. in `"SELECT id AS employee_id FROM employees"`,
      * `original_field_name()` will be `"id"`.
      */
-    boost::string_view original_field_name() const noexcept { return msg_.org_name.value; }
+    string_view original_field_name() const noexcept { return msg_.org_name.value; }
 
     /// Returns the character set ([reflink collation]) for the column.
     collation character_set() const noexcept { return msg_.character_set; }
@@ -136,8 +136,7 @@ public:
 };
 
 } // detail
-} // mysql
-} // boost
+BOOST_MYSQL_NAMESPACE_END
 
 #include "boost/mysql/impl/metadata.ipp"
 

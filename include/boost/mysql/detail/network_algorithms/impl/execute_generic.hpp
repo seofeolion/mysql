@@ -167,15 +167,15 @@ struct execute_generic_op : boost::asio::coroutine
         }
 
         // Non-error path
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             chan_.reset_sequence_number();
 
             // The request message has already been composed in the ctor. Send it
-            BOOST_ASIO_CORO_YIELD chan_.async_write(processor_->get_buffer(), std::move(self));
+            BOOST_MYSQL_CORO_YIELD chan_.async_write(processor_->get_buffer(), std::move(self));
 
             // Read the response
-            BOOST_ASIO_CORO_YIELD chan_.async_read(processor_->get_buffer(), std::move(self));
+            BOOST_MYSQL_CORO_YIELD chan_.async_read(processor_->get_buffer(), std::move(self));
 
             // Response may be: ok_packet, err_packet, local infile request
             // (not implemented), or response with fields
@@ -183,7 +183,7 @@ struct execute_generic_op : boost::asio::coroutine
             if (err)
             {
                 self.complete(err, resultset<Stream>());
-                BOOST_ASIO_CORO_YIELD break;
+                BOOST_MYSQL_CORO_YIELD break;
             }
             remaining_fields_ = processor_->field_count();
 
@@ -191,14 +191,14 @@ struct execute_generic_op : boost::asio::coroutine
             while (remaining_fields_ > 0)
             {
                 // Read the field definition packet
-                BOOST_ASIO_CORO_YIELD chan_.async_read(processor_->get_buffer(), std::move(self));
+                BOOST_MYSQL_CORO_YIELD chan_.async_read(processor_->get_buffer(), std::move(self));
 
                 // Process the message
                 err = processor_->process_field_definition();
                 if (err)
                 {
                     self.complete(err, resultset<Stream>());
-                    BOOST_ASIO_CORO_YIELD break;
+                    BOOST_MYSQL_CORO_YIELD break;
                 }
 
                 remaining_fields_--;
@@ -266,7 +266,7 @@ void boost::mysql::detail::execute_generic(
 }
 
 template <class Stream, class Serializable, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code, boost::mysql::resultset<Stream>)
 )

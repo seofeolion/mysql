@@ -28,7 +28,7 @@ void execute_statement(
 );
 
 template <class Stream, class ValueForwardIterator, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, resultset<Stream>))
 async_execute_statement(
     channel<Stream>& chan,
     std::uint32_t statement_id,

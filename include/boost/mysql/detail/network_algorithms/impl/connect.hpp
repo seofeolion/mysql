@@ -43,20 +43,20 @@ struct connect_op : boost::asio::coroutine
         error_code code = {}
     )
     {
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             // Physical connect
-            BOOST_ASIO_CORO_YIELD chan_.next_layer().async_connect(ep_, std::move(self));
+            BOOST_MYSQL_CORO_YIELD chan_.next_layer().async_connect(ep_, std::move(self));
             if (code)
             {
                 chan_.close();
                 output_info_.set_message("Physical connect failed");
                 self.complete(code);
-                BOOST_ASIO_CORO_YIELD break;
+                BOOST_MYSQL_CORO_YIELD break;
             }
 
             // Handshake
-            BOOST_ASIO_CORO_YIELD async_handshake(
+            BOOST_MYSQL_CORO_YIELD async_handshake(
                 chan_,
                 params_,
                 std::move(self),
@@ -99,7 +99,7 @@ void boost::mysql::detail::connect(
 }
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code)
 )

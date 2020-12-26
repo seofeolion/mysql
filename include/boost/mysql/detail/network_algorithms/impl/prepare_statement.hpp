@@ -92,20 +92,20 @@ struct prepare_statement_op : boost::asio::coroutine
 
         // Regular coroutine body; if there has been an error, we don't get here
         channel<Stream>& chan = processor_.get_channel();
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             // Write message (already serialized at this point)
-            BOOST_ASIO_CORO_YIELD chan.async_write(processor_.get_buffer(), std::move(self));
+            BOOST_MYSQL_CORO_YIELD chan.async_write(processor_.get_buffer(), std::move(self));
 
             // Read response
-            BOOST_ASIO_CORO_YIELD chan.async_read(processor_.get_buffer(), std::move(self));
+            BOOST_MYSQL_CORO_YIELD chan.async_read(processor_.get_buffer(), std::move(self));
 
             // Process response
             processor_.process_response(err, output_info_);
             if (err)
             {
                 self.complete(err, prepared_statement<Stream>());
-                BOOST_ASIO_CORO_YIELD break;
+                BOOST_MYSQL_CORO_YIELD break;
             }
 
             // Server sends now one packet per parameter and field.
@@ -113,7 +113,7 @@ struct prepare_statement_op : boost::asio::coroutine
             remaining_meta_ = processor_.get_num_metadata_packets();
             for (; remaining_meta_ > 0; --remaining_meta_)
             {
-                BOOST_ASIO_CORO_YIELD chan.async_read(processor_.get_buffer(), std::move(self));
+                BOOST_MYSQL_CORO_YIELD chan.async_read(processor_.get_buffer(), std::move(self));
             }
 
             // Compose response
@@ -171,7 +171,7 @@ void boost::mysql::detail::prepare_statement(
 }
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code, boost::mysql::prepared_statement<Stream>)
 )

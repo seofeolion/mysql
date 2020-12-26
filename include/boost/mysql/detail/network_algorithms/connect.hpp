@@ -25,7 +25,7 @@ void connect(
 );
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
 async_connect(
     channel<Stream>& chan,
     const typename Stream::endpoint_type& endpoint,

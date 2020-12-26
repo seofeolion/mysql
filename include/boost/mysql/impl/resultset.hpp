@@ -145,16 +145,16 @@ struct boost::mysql::resultset<Stream>::fetch_one_op
         detail::read_row_result result=detail::read_row_result::error
     )
     {
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             if (resultset_.complete())
             {
                 // ensure return as if by post
-                BOOST_ASIO_CORO_YIELD boost::asio::post(std::move(self));
+                BOOST_MYSQL_CORO_YIELD boost::asio::post(std::move(self));
                 self.complete(error_code(), nullptr);
-                BOOST_ASIO_CORO_YIELD break;
+                BOOST_MYSQL_CORO_YIELD break;
             }
-            BOOST_ASIO_CORO_YIELD detail::async_read_row(
+            BOOST_MYSQL_CORO_YIELD detail::async_read_row(
                 resultset_.deserializer_,
                 *resultset_.channel_,
                 resultset_.meta_.fields(),
@@ -174,9 +174,9 @@ struct boost::mysql::resultset<Stream>::fetch_one_op
 };
 
 template <class Stream>
-template <BOOST_ASIO_COMPLETION_TOKEN_FOR(
+template <BOOST_MYSQL_COMPLETION_TOKEN_FOR(
     void(boost::mysql::error_code, const boost::mysql::row*)) CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code, const boost::mysql::row*)
 )
@@ -262,12 +262,12 @@ struct boost::mysql::resultset<Stream>::fetch_many_op
     )
     {
         impl_struct& impl = *impl_;
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             while (!impl.parent_resultset.complete() && impl.remaining > 0)
             {
                 impl.cont = true;
-                BOOST_ASIO_CORO_YIELD detail::async_read_row(
+                BOOST_MYSQL_CORO_YIELD detail::async_read_row(
                     impl.parent_resultset.deserializer_,
                     *impl.parent_resultset.channel_,
                     impl.parent_resultset.meta_.fields(),
@@ -280,7 +280,7 @@ struct boost::mysql::resultset<Stream>::fetch_many_op
                 if (result == detail::read_row_result::error)
                 {
                     self.complete(err, std::move(impl.rows));
-                    BOOST_ASIO_CORO_YIELD break;
+                    BOOST_MYSQL_CORO_YIELD break;
                 }
                 else if (result == detail::read_row_result::eof)
                 {
@@ -296,7 +296,7 @@ struct boost::mysql::resultset<Stream>::fetch_many_op
             {
                 // Ensure we call handler as if dispatched using post
                 // through the correct executor
-                BOOST_ASIO_CORO_YIELD
+                BOOST_MYSQL_CORO_YIELD
                 boost::asio::post(bind_handler(self, err));
             }
 
@@ -306,9 +306,9 @@ struct boost::mysql::resultset<Stream>::fetch_many_op
 };
 
 template <class Stream>
-template <BOOST_ASIO_COMPLETION_TOKEN_FOR(
+template <BOOST_MYSQL_COMPLETION_TOKEN_FOR(
     void(boost::mysql::error_code, std::vector<boost::mysql::owning_row>)) CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code, std::vector<boost::mysql::owning_row>)
 )
@@ -331,9 +331,9 @@ boost::mysql::resultset<Stream>::async_fetch_many(
 }
 
 template <class Stream>
-template <BOOST_ASIO_COMPLETION_TOKEN_FOR(
+template <BOOST_MYSQL_COMPLETION_TOKEN_FOR(
     void(boost::mysql::error_code, std::vector<boost::mysql::owning_row>)) CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code, std::vector<boost::mysql::owning_row>)
 )

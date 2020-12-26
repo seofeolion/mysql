@@ -105,10 +105,10 @@ struct read_row_op : boost::asio::coroutine
         }
 
         // Normal path
-        BOOST_ASIO_CORO_REENTER(*this)
+        BOOST_MYSQL_CORO_REENTER(*this)
         {
             // Read the message
-            BOOST_ASIO_CORO_YIELD chan_.async_read(buffer_, std::move(self));
+            BOOST_MYSQL_CORO_YIELD chan_.async_read(buffer_, std::move(self));
 
             // Process it
             result = process_read_message(
@@ -161,7 +161,7 @@ boost::mysql::detail::read_row_result boost::mysql::detail::read_row(
 }
 
 template <class Stream, class CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+BOOST_MYSQL_INITFN_AUTO_RESULT_TYPE(
     CompletionToken,
     void(boost::mysql::error_code, boost::mysql::detail::read_row_result)
 )

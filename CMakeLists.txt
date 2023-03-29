@@ -7,6 +7,15 @@
 
 cmake_minimum_required(VERSION 3.8...3.22)
 
+# TODO: easy workaround
+include(FetchContent)
+FetchContent_Declare(
+  bsam
+  GIT_REPOSITORY https://github.com/klemens-morgenstern/sam.git
+  GIT_TAG        a867d1aa7b13e96a9ab0226b867b8e4024a610f0
+)
+FetchContent_MakeAvailable(bsam)
+
 # Boost version
 if (DEFINED BOOST_SUPERPROJECT_VERSION)
     set(BOOST_MYSQL_VERSION ${BOOST_SUPERPROJECT_VERSION})
@@ -121,6 +130,8 @@ target_link_libraries(
 if (MSVC)
     target_compile_options(boost_mysql INTERFACE /Zc:__cplusplus)
 endif()
+
+target_link_libraries(boost_mysql INTERFACE Boost::sam)
 
 # Examples and tests
 if(BUILD_TESTING)

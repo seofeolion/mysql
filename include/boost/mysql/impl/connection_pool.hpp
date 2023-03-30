@@ -8,9 +8,7 @@
 #ifndef BOOST_MYSQL_IMPL_CONNECTION_POOL_HPP
 #define BOOST_MYSQL_IMPL_CONNECTION_POOL_HPP
 
-#include "boost/sam/lock_guard.hpp"
 #pragma once
-
 #include <boost/mysql/client_errc.hpp>
 #include <boost/mysql/connection_pool.hpp>
 #include <boost/mysql/diagnostics.hpp>
@@ -26,6 +24,7 @@
 #include <boost/asio/error.hpp>
 #include <boost/asio/experimental/cancellation_condition.hpp>
 #include <boost/asio/experimental/parallel_group.hpp>
+#include <boost/asio/steady_timer.hpp>
 #include <boost/core/ignore_unused.hpp>
 
 #include <chrono>
@@ -33,6 +32,120 @@
 
 #include "boost/sam/condition_variable.hpp"
 #include "boost/sam/guarded.hpp"
+#include "boost/sam/lock_guard.hpp"
+
+namespace boost {
+namespace mysql {
+namespace detail {
+
+struct initiate_wait
+{
+    // TODO: this should be customizable
+    static constexpr std::chrono::seconds wait_timeout{10};
+
+    struct cv_op
+    {
+        boost::sam::condition_variable& cv;
+
+        template <class CompletionToken>
+        BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+        operator()(CompletionToken&& token)
+        {
+            return cv.async_wait(std::move(token));
+        }
+    };
+
+    struct timer_op
+    {
+        std::shared_ptr<boost::asio::steady_timer> timer;
+
+        template <class CompletionToken>
+        BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+        operator()(CompletionToken&& token)
+        {
+            timer->expires_after(wait_timeout);
+            return timer->async_wait(std::move(token));
+        }
+    };
+
+    template <typename CompletionHandler>
+    void operator()(CompletionHandler&& completion_handler, boost::sam::condition_variable& cv) const
+    {
+        struct intermediate_handler
+        {
+            boost::sam::condition_variable& cv_;
+            std::shared_ptr<boost::asio::steady_timer> timer_;
+            typename std::decay<CompletionHandler>::type handler_;
+
+            // The function call operator matches the completion signature of the
+            // async_write operation.
+            void operator()(
+                std::array<std::size_t, 2> completion_order,
+                boost::system::error_code ec1,
+                boost::system::error_code ec2
+            )
+            {
+                // Deallocate before calling the handler
+                timer_.reset();
+
+                switch (completion_order[0])
+                {
+                case 0: handler_(ec1); break;
+                case 1: handler_(boost::asio::error::operation_aborted); break;
+                }
+
+                boost::ignore_unused(ec2);
+            }
+
+            // Preserve executor and allocator
+            using executor_type = boost::asio::associated_executor_t<
+                typename std::decay<CompletionHandler>::type,
+                boost::sam::condition_variable::executor_type>;
+
+            executor_type get_executor() const noexcept
+            {
+                return boost::asio::get_associated_executor(handler_, cv_.get_executor());
+            }
+
+            using allocator_type = boost::asio::
+                associated_allocator_t<typename std::decay<CompletionHandler>::type, std::allocator<void>>;
+
+            allocator_type get_allocator() const noexcept
+            {
+                return boost::asio::get_associated_allocator(handler_, std::allocator<void>{});
+            }
+        };
+
+        auto timer = std::allocate_shared<boost::asio::steady_timer>(
+            boost::asio::get_associated_allocator(completion_handler),
+            cv.get_executor()
+        );
+        boost::asio::experimental::make_parallel_group(cv_op{cv}, timer_op{timer})
+            .async_wait(
+                boost::asio::experimental::wait_for_one(),
+                intermediate_handler{
+                    cv,
+                    std::move(timer),
+                    std::forward<CompletionHandler>(completion_handler),
+                }
+            );
+    }
+};
+
+template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code)) CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+async_wait_for(boost::sam::condition_variable& cv, CompletionToken&& token)
+{
+    return boost::asio::async_initiate<CompletionToken, void(error_code)>(
+        initiate_wait{},
+        token,
+        std::ref(cv)
+    );
+}
+
+}  // namespace detail
+}  // namespace mysql
+}  // namespace boost
 
 boost::mysql::pooled_connection::pooled_connection(connection_pool& p)
     : pool_(&p),
@@ -191,8 +304,9 @@ struct boost::mysql::pooled_connection::setup_op : boost::asio::coroutine
     }
 };
 
-template <class CompletionToken>
-auto boost::mysql::pooled_connection::async_setup(diagnostics& diag, CompletionToken&& token)
+template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code)) CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+boost::mysql::pooled_connection::async_setup(diagnostics& diag, CompletionToken&& token)
 {
     return boost::asio::async_compose<CompletionToken, void(error_code)>(
         setup_op(*this, diag),
@@ -200,97 +314,6 @@ auto boost::mysql::pooled_connection::async_setup(diagnostics& diag, CompletionT
         resolver_.get_executor()
     );
 }
-
-namespace boost {
-namespace mysql {
-namespace detail {
-
-struct initiate_wait
-{
-    // TODO: this should be customizable
-    static constexpr std::chrono::seconds wait_timeout{10};
-
-    template <typename CompletionHandler>
-    void operator()(CompletionHandler&& completion_handler, boost::sam::condition_variable& cv) const
-    {
-        struct intermediate_handler
-        {
-            boost::sam::condition_variable& cv_;
-            std::shared_ptr<boost::asio::steady_timer> timer_;
-            typename std::decay<CompletionHandler>::type handler_;
-
-            // The function call operator matches the completion signature of the
-            // async_write operation.
-            void operator()(
-                std::array<std::size_t, 2> completion_order,
-                boost::system::error_code ec1,
-                boost::system::error_code ec2
-            )
-            {
-                // Deallocate before calling the handler
-                timer_.reset();
-
-                switch (completion_order[0])
-                {
-                case 0: handler_(ec1); break;
-                case 1: handler_(boost::asio::error::operation_aborted); break;
-                }
-
-                boost::ignore_unused(ec2);
-            }
-
-            // Preserve executor and allocator
-            using executor_type = boost::asio::associated_executor_t<
-                typename std::decay<CompletionHandler>::type,
-                boost::sam::condition_variable::executor_type>;
-
-            executor_type get_executor() const noexcept
-            {
-                return boost::asio::get_associated_executor(handler_, cv_.get_executor());
-            }
-
-            using allocator_type = boost::asio::
-                associated_allocator_t<typename std::decay<CompletionHandler>::type, std::allocator<void>>;
-
-            allocator_type get_allocator() const noexcept
-            {
-                return boost::asio::get_associated_allocator(handler_, std::allocator<void>{});
-            }
-        };
-
-        auto timer = std::allocate_shared<boost::asio::steady_timer>(
-            boost::asio::get_associated_allocator(completion_handler),
-            cv.get_executor()
-        );
-        timer->expires_after(wait_timeout);
-        boost::asio::experimental::make_parallel_group(
-            [&](auto token) { return cv.async_wait(std::move(token)); },
-            [timer](auto token) { return timer->async_wait(std::move(token)); }
-        )
-            .async_wait(
-                boost::asio::experimental::wait_for_one(),
-                intermediate_handler{
-                    cv,
-                    std::move(timer),
-                    std::forward<CompletionHandler>(completion_handler),
-                }
-            );
-    }
-};
-
-template <class CompletionToken>
-auto async_wait_for(boost::sam::condition_variable& cv, CompletionToken&& token)
-{
-    return boost::asio::async_initiate<CompletionToken, void(error_code)>(
-        initiate_wait{},
-        token,
-        std::ref(cv)
-    );
-}
-
-}  // namespace detail
-}  // namespace mysql
-}  // namespace boost
 
 struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
 {
@@ -340,8 +363,10 @@ struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
     }
 };
 
-template <class CompletionToken>
-auto boost::mysql::connection_pool::async_get_connection(diagnostics& diag, CompletionToken&& token)
+template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code, ::boost::mysql::pooled_connection*)
+) CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, pooled_connection*))
+boost::mysql::connection_pool::async_get_connection(diagnostics& diag, CompletionToken&& token)
 {
     return boost::asio::async_compose<CompletionToken, void(error_code, pooled_connection*)>(
         get_connection_op(*this, diag),

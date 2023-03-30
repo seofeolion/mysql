@@ -16,6 +16,7 @@
 #include <boost/mysql/tcp_ssl.hpp>
 
 #include <boost/asio/any_io_executor.hpp>
+#include <boost/asio/async_result.hpp>
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/steady_timer.hpp>
@@ -70,11 +71,6 @@ public:
     const tcp_ssl_connection& get() const noexcept { return conn_; }
 
 private:
-    pooled_connection(connection_pool& pool);
-
-    template <class CompletionToken>
-    auto async_setup(diagnostics&, CompletionToken&& tok);
-
     enum class state_t
     {
         not_connected,
@@ -83,10 +79,13 @@ private:
         pending_reset
     };
 
-    state_t state() const noexcept { return state_; }
-    void set_state(state_t st) noexcept { state_ = st; }
+    inline pooled_connection(connection_pool& pool);
 
-    void cleanup() noexcept;
+    template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code)) CompletionToken>
+    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+    async_setup(diagnostics&, CompletionToken&& tok);
+
+    inline void cleanup() noexcept;
 
     struct deleter
     {
@@ -129,8 +128,11 @@ public:
 
     boost::asio::any_io_executor get_executor() const { return mtx_.get_executor(); }
 
-    template <class CompletionToken>
-    auto async_get_connection(diagnostics& diag, CompletionToken&& token);
+    template <
+        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code, ::boost::mysql::pooled_connection*))
+            CompletionToken>
+    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, pooled_connection*))
+    async_get_connection(diagnostics& diag, CompletionToken&& token);
 
     void return_connection(pooled_connection& conn, bool should_reset = true)
     {
@@ -138,7 +140,7 @@ public:
         bool prev = conn.locked_.exchange(true);
         assert(!prev);
         boost::ignore_unused(prev);
-        conn.set_state(should_reset ? st_t::pending_reset : st_t::in_use);
+        conn.state_ = should_reset ? st_t::pending_reset : st_t::in_use;
         conn.locked_ = false;
         cv_.notify_one();
     }
@@ -148,14 +150,14 @@ private:
     {
         // Prefer iddle connections
         auto it = std::find_if(conns_.begin(), conns_.end(), [](const pooled_connection& conn) {
-            return !conn.locked_ && conn.state() == pooled_connection::state_t::iddle;
+            return !conn.locked_ && conn.state_ == pooled_connection::state_t::iddle;
         });
 
         // Otherwise, prefer connections pending reset
         if (it == conns_.end())
         {
             it = std::find_if(conns_.begin(), conns_.end(), [](const pooled_connection& conn) {
-                return !conn.locked_ && conn.state() == pooled_connection::state_t::pending_reset;
+                return !conn.locked_ && conn.state_ == pooled_connection::state_t::pending_reset;
             });
         }
 
@@ -163,7 +165,7 @@ private:
         if (it == conns_.end())
         {
             it = std::find_if(conns_.begin(), conns_.end(), [](const pooled_connection& conn) {
-                return !conn.locked_ && conn.state() == pooled_connection::state_t::not_connected;
+                return !conn.locked_ && conn.state_ == pooled_connection::state_t::not_connected;
             });
         }
 

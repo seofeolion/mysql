@@ -7,7 +7,7 @@
 
 # Note: examples count as integration tests. This is only processed
 # when we're the main project and BOOST_MYSQL_INTEGRATION_TESTS is on
-find_package(Boost ${BOOST_MYSQL_VERSION} REQUIRED COMPONENTS context)
+find_package(Boost ${BOOST_MYSQL_VERSION} REQUIRED COMPONENTS context json url)
 
 # Compile the example
 function (build_example EXECUTABLE_NAME CPPFILE)
@@ -81,3 +81,10 @@ if ("$ENV{BOOST_MYSQL_NO_UNIX_SOCKET_TESTS}" STREQUAL "")
     add_example(unix_socket             TRUE    "/var/run/mysqld/mysqld.sock")
 endif()
 
+build_example(boost_mysql_example_http_server http_server/http_server.cpp)
+target_link_libraries(
+    boost_mysql_example_http_server
+    PRIVATE
+    Boost::json
+    Boost::url
+)

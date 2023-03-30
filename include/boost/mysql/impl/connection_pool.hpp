@@ -147,7 +147,7 @@ async_wait_for(boost::sam::condition_variable& cv, CompletionToken&& token)
 }  // namespace mysql
 }  // namespace boost
 
-boost::mysql::pooled_connection::pooled_connection(connection_pool& p)
+boost::mysql::pooled_connection_impl::pooled_connection_impl(connection_pool& p)
     : pool_(&p),
       conn_(p.get_executor(), p.ssl_ctx_),
       resolver_(p.get_executor()),
@@ -156,7 +156,7 @@ boost::mysql::pooled_connection::pooled_connection(connection_pool& p)
 {
 }
 
-void boost::mysql::pooled_connection::cleanup() noexcept
+void boost::mysql::pooled_connection_impl::cleanup() noexcept
 {
     try
     {
@@ -167,28 +167,24 @@ void boost::mysql::pooled_connection::cleanup() noexcept
     }
 }
 
-struct boost::mysql::pooled_connection::setup_op : boost::asio::coroutine
+struct boost::mysql::pooled_connection_impl::setup_op : boost::asio::coroutine
 {
     struct deleter
     {
-        void operator()(pooled_connection* conn) const noexcept
-        {
-            if (conn)
-                conn->locked_ = false;
-        }
+        void operator()(pooled_connection_impl* conn) const noexcept { conn->locked_ = false; }
     };
-    using guard = std::unique_ptr<pooled_connection, deleter>;
+    using guard = std::unique_ptr<pooled_connection_impl, deleter>;
 
     // TODO: this strategy should be customizable
-    static constexpr std::size_t max_num_tries = 10;
+    static constexpr std::size_t max_num_tries = 2;
     static constexpr std::chrono::milliseconds between_tries{1000};
 
-    pooled_connection& conn_;
+    pooled_connection_impl& conn_;
     diagnostics& diag_;
     std::size_t num_tries_{0};
     guard g_;
 
-    setup_op(pooled_connection& conn, diagnostics& diag) : conn_(conn), diag_(diag), g_(&conn) {}
+    setup_op(pooled_connection_impl& conn, diagnostics& diag) : conn_(conn), diag_(diag), g_(&conn) {}
 
     template <class Self>
     void complete(Self& self, error_code ec)
@@ -200,7 +196,7 @@ struct boost::mysql::pooled_connection::setup_op : boost::asio::coroutine
     template <class Self>
     void complete_ok(Self& self)
     {
-        conn_.state_ = pooled_connection::state_t::in_use;
+        conn_.state_ = pooled_connection_impl::state_t::in_use;
         diag_.clear();
         complete(self, error_code());
     }
@@ -212,14 +208,14 @@ struct boost::mysql::pooled_connection::setup_op : boost::asio::coroutine
         boost::asio::ip::tcp::resolver::results_type endpoints = {}
     )
     {
-        using st_t = pooled_connection::state_t;
+        using st_t = pooled_connection_impl::state_t;
 
         BOOST_ASIO_CORO_REENTER(*this)
         {
             assert(conn_.state_ != st_t::in_use);
             assert(conn_.locked_);
 
-            for (; num_tries_ < max_num_tries; ++num_tries_)
+            for (;;)
             {
                 if (conn_.state_ == st_t::not_connected)
                 {
@@ -231,9 +227,18 @@ struct boost::mysql::pooled_connection::setup_op : boost::asio::coroutine
                     );
                     if (err)
                     {
+                        if (++num_tries_ >= max_num_tries)
+                        {
+                            complete(self, err);
+                            BOOST_ASIO_CORO_YIELD break;
+                        }
                         conn_.timer_.expires_after(between_tries);
                         BOOST_ASIO_CORO_YIELD conn_.timer_.async_wait(std::move(self));
-                        // TODO: check timer errors?
+                        if (err)
+                        {
+                            complete(self, err);
+                            BOOST_ASIO_CORO_YIELD break;
+                        }
                         continue;
                     }
 
@@ -246,6 +251,15 @@ struct boost::mysql::pooled_connection::setup_op : boost::asio::coroutine
                     );
                     if (err)
                     {
+                        if (++num_tries_ >= max_num_tries)
+                        {
+                            complete(self, err);
+                            BOOST_ASIO_CORO_YIELD break;
+                        }
+                        conn_.conn_ = tcp_ssl_connection(
+                            conn_.resolver_.get_executor(),
+                            conn_.pool_->ssl_ctx_
+                        );
                         conn_.timer_.expires_after(between_tries);
                         BOOST_ASIO_CORO_YIELD conn_.timer_.async_wait(std::move(self));
                         if (err)
@@ -285,6 +299,11 @@ struct boost::mysql::pooled_connection::setup_op : boost::asio::coroutine
 
                         // Mark it as initial and retry
                         conn_.state_ = st_t::not_connected;
+                        if (++num_tries_ >= max_num_tries)
+                        {
+                            complete(self, err);
+                            BOOST_ASIO_CORO_YIELD break;
+                        }
                         conn_.timer_.expires_after(between_tries);
                         BOOST_ASIO_CORO_YIELD conn_.timer_.async_wait(std::move(self));
                         if (err)
@@ -298,15 +317,13 @@ struct boost::mysql::pooled_connection::setup_op : boost::asio::coroutine
                     BOOST_ASIO_CORO_YIELD break;
                 }
             }
-
-            complete(self, error_code(client_errc::pool_retries_exhausted));
         }
     }
 };
 
 template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code)) CompletionToken>
 BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
-boost::mysql::pooled_connection::async_setup(diagnostics& diag, CompletionToken&& token)
+boost::mysql::pooled_connection_impl::async_setup(diagnostics& diag, CompletionToken&& token)
 {
     return boost::asio::async_compose<CompletionToken, void(error_code)>(
         setup_op(*this, diag),
@@ -319,20 +336,24 @@ struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
 {
     connection_pool& pool_;
     diagnostics& diag_;
-    pooled_connection* conn_{nullptr};
+    pooled_connection_impl* conn_{nullptr};
 
     get_connection_op(connection_pool& pool, diagnostics& diag) noexcept : pool_(pool), diag_(diag) {}
 
     template <class Self>
     void operator()(Self& self, error_code err = {}, boost::sam::lock_guard lockg = {})
     {
-        std::shared_ptr<boost::asio::steady_timer> timer;
         BOOST_ASIO_CORO_REENTER(*this)
         {
             while (true)
             {
                 // Lock
                 BOOST_ASIO_CORO_YIELD boost::sam::async_lock(pool_.mtx_, std::move(self));
+                if (err)
+                {
+                    self.complete(err, nullptr);
+                    BOOST_ASIO_CORO_YIELD break;
+                }
 
                 // Find a connection we can return to the user
                 conn_ = pool_.find_connection();
@@ -352,7 +373,7 @@ struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
                     }
 
                     // Done
-                    self.complete(error_code(), conn_);
+                    self.complete(error_code(), pooled_connection(conn_));
                     BOOST_ASIO_CORO_YIELD break;
                 }
 
@@ -363,12 +384,12 @@ struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
     }
 };
 
-template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code, ::boost::mysql::pooled_connection*)
-) CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, pooled_connection*))
+template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code, ::boost::mysql::pooled_connection))
+              CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, pooled_connection))
 boost::mysql::connection_pool::async_get_connection(diagnostics& diag, CompletionToken&& token)
 {
-    return boost::asio::async_compose<CompletionToken, void(error_code, pooled_connection*)>(
+    return boost::asio::async_compose<CompletionToken, void(error_code, pooled_connection)>(
         get_connection_op(*this, diag),
         token,
         cv_

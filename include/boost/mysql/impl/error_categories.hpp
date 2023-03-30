@@ -45,6 +45,8 @@ inline const char* error_to_string(client_errc error) noexcept
     case boost::mysql::client_errc::server_doesnt_support_ssl:
         return "The connection is configured to require SSL, but the server doesn't allow SSL connections. "
                "Configure SSL on your server or change your connection to not require SSL";
+    case boost::mysql::client_errc::pool_retries_exhausted:
+        return "Could not obtain a connection from the pool after retrying";
     default: return "<unknown MySQL client error>";
     }
 }

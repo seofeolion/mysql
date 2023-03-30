@@ -62,7 +62,7 @@ struct connection_params
 
 class connection_pool;
 
-class pooled_connection
+class pooled_connection_impl
 {
 public:
     // TODO: mysql is strictly request-reply, so I think this counts as an implicit
@@ -79,7 +79,7 @@ private:
         pending_reset
     };
 
-    inline pooled_connection(connection_pool& pool);
+    inline pooled_connection_impl(connection_pool& pool);
 
     template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code)) CompletionToken>
     BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
@@ -89,7 +89,7 @@ private:
 
     struct deleter
     {
-        void operator()(pooled_connection* pc) noexcept { pc->cleanup(); }
+        void operator()(pooled_connection_impl* pc) noexcept { pc->cleanup(); }
     };
 
     connection_pool* pool_;
@@ -98,11 +98,14 @@ private:
     tcp_ssl_connection conn_;
     boost::asio::ip::tcp::resolver resolver_;
     boost::asio::steady_timer timer_;
-    std::unique_ptr<pooled_connection, deleter> cleanup_ptr_;
+    std::unique_ptr<pooled_connection_impl, deleter> cleanup_ptr_;
 
     struct setup_op;
     friend class connection_pool;
+    friend class pooled_connection;
 };
+
+class pooled_connection;
 
 class connection_pool
 {
@@ -122,21 +125,21 @@ public:
     {
         for (std::size_t i = 0; i < initial_size; ++i)
         {
-            conns_.emplace_back(how_to_connect, ssl_ctx_, exec);
+            add_connection();
         }
     }
 
     boost::asio::any_io_executor get_executor() const { return mtx_.get_executor(); }
 
     template <
-        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code, ::boost::mysql::pooled_connection*))
+        BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code, ::boost::mysql::pooled_connection))
             CompletionToken>
-    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, pooled_connection*))
+    BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, pooled_connection))
     async_get_connection(diagnostics& diag, CompletionToken&& token);
 
-    void return_connection(pooled_connection& conn, bool should_reset = true)
+    void return_connection(pooled_connection_impl& conn, bool should_reset = true)
     {
-        using st_t = pooled_connection::state_t;
+        using st_t = pooled_connection_impl::state_t;
         bool prev = conn.locked_.exchange(true);
         assert(!prev);
         boost::ignore_unused(prev);
@@ -145,38 +148,55 @@ public:
         cv_.notify_one();
     }
 
+    void add_connection()
+    {
+        conns_.push_back(std::unique_ptr<pooled_connection_impl>(new pooled_connection_impl(*this)));
+    }
+
 private:
-    pooled_connection* find_connection()
+    pooled_connection_impl* find_connection()
     {
         // Prefer iddle connections
-        auto it = std::find_if(conns_.begin(), conns_.end(), [](const pooled_connection& conn) {
-            return !conn.locked_ && conn.state_ == pooled_connection::state_t::iddle;
-        });
+        auto it = std::find_if(
+            conns_.begin(),
+            conns_.end(),
+            [](const std::unique_ptr<pooled_connection_impl>& conn) {
+                return !conn->locked_ && conn->state_ == pooled_connection_impl::state_t::iddle;
+            }
+        );
 
         // Otherwise, prefer connections pending reset
         if (it == conns_.end())
         {
-            it = std::find_if(conns_.begin(), conns_.end(), [](const pooled_connection& conn) {
-                return !conn.locked_ && conn.state_ == pooled_connection::state_t::pending_reset;
-            });
+            it = std::find_if(
+                conns_.begin(),
+                conns_.end(),
+                [](const std::unique_ptr<pooled_connection_impl>& conn) {
+                    return !conn->locked_ && conn->state_ == pooled_connection_impl::state_t::pending_reset;
+                }
+            );
         }
 
         // Otherwise, get a not connected connection, which is the most expensive to setup
         if (it == conns_.end())
         {
-            it = std::find_if(conns_.begin(), conns_.end(), [](const pooled_connection& conn) {
-                return !conn.locked_ && conn.state_ == pooled_connection::state_t::not_connected;
-            });
+            it = std::find_if(
+                conns_.begin(),
+                conns_.end(),
+                [](const std::unique_ptr<pooled_connection_impl>& conn) {
+                    return !conn->locked_ && conn->state_ == pooled_connection_impl::state_t::not_connected;
+                }
+            );
         }
 
         // No available connection, we need to create one, if limits allow us
         if (it == conns_.end() && conns_.size() < max_size_)
         {
-            conns_.emplace_back(how_to_connect_, ssl_ctx_, cv_.get_executor());
+            add_connection();
             it = std::prev(conns_.end());
         }
 
-        return it == conns_.end() ? nullptr : &*it;
+        return it == conns_.end() ? nullptr : it->get();
     }
 
     boost::asio::ssl::context ssl_ctx_;
@@ -185,11 +205,37 @@ private:
     boost::asio::steady_timer timer_;
     boost::sam::mutex mtx_;
     boost::sam::condition_variable cv_;
-    std::list<pooled_connection> conns_;
+    std::vector<std::unique_ptr<pooled_connection_impl>> conns_;
 
-    friend class pooled_connection;
+    friend class pooled_connection_impl;
     struct get_connection_op;
     struct return_connection_op;
+};
+
+class pooled_connection
+{
+    pooled_connection_impl* impl_{};
+
+public:
+    pooled_connection() = default;
+    pooled_connection(pooled_connection_impl* impl) noexcept : impl_(impl) {}
+    pooled_connection(const pooled_connection&) = delete;
+    pooled_connection(pooled_connection&& other) noexcept : impl_(other.impl_) { other.impl_ = nullptr; }
+    pooled_connection& operator=(const pooled_connection&) = delete;
+    pooled_connection& operator=(pooled_connection&& other) noexcept
+    {
+        std::swap(impl_, other.impl_);
+        return *this;
+    }
+    ~pooled_connection() noexcept
+    {
+        if (impl_)
+            impl_->pool_->return_connection(*impl_);
+    }
+    tcp_ssl_connection* operator->() noexcept { return &get(); }
+    const tcp_ssl_connection* operator->() const noexcept { return &get(); }
+    tcp_ssl_connection& get() noexcept { return impl_->conn_; }
+    const tcp_ssl_connection& get() const noexcept { return impl_->conn_; }
 };
 
 }  // namespace mysql

@@ -27,9 +27,11 @@
 #include <atomic>
 #include <list>
 #include <memory>
+#include <mutex>
 
 #include "boost/sam/condition_variable.hpp"
 #include "boost/sam/guarded.hpp"
+#include "boost/sam/lock_guard.hpp"
 
 namespace boost {
 namespace mysql {
@@ -92,8 +94,8 @@ private:
         void operator()(pooled_connection_impl* pc) noexcept { pc->cleanup(); }
     };
 
+    boost::sam::mutex mtx_;
     connection_pool* pool_;
-    std::atomic_bool locked_{false};
     state_t state_{state_t::not_connected};
     tcp_ssl_connection conn_;
     boost::asio::ip::tcp::resolver resolver_;
@@ -140,11 +142,13 @@ public:
     void return_connection(pooled_connection_impl& conn, bool should_reset = true)
     {
         using st_t = pooled_connection_impl::state_t;
-        bool prev = conn.locked_.exchange(true);
-        assert(!prev);
-        boost::ignore_unused(prev);
-        conn.state_ = should_reset ? st_t::pending_reset : st_t::in_use;
-        conn.locked_ = false;
+        bool ok = conn.mtx_.try_lock();
+        assert(ok);
+        boost::ignore_unused(ok);
+        {
+            boost::sam::lock_guard guard(conn.mtx_, std::adopt_lock);
+            conn.state_ = should_reset ? st_t::pending_reset : st_t::in_use;
+        }
         cv_.notify_one();
     }
 
@@ -154,49 +158,46 @@ public:
     }
 
 private:
-    pooled_connection_impl* find_connection()
+    std::pair<pooled_connection_impl*, boost::sam::lock_guard> find_connection()
     {
-        // Prefer iddle connections
-        auto it = std::find_if(
-            conns_.begin(),
-            conns_.end(),
-            [](const std::unique_ptr<pooled_connection_impl>& conn) {
-                return !conn->locked_ && conn->state_ == pooled_connection_impl::state_t::iddle;
-            }
-        );
-
-        // Otherwise, prefer connections pending reset
-        if (it == conns_.end())
+        // Prefer iddle or pending reset connections
+        for (auto& conn : conns_)
         {
-            it = std::find_if(
-                conns_.begin(),
-                conns_.end(),
-                [](const std::unique_ptr<pooled_connection_impl>& conn) {
-                    return !conn->locked_ && conn->state_ == pooled_connection_impl::state_t::pending_reset;
+            if (conn->mtx_.try_lock())
+            {
+                boost::sam::lock_guard guard(conn->mtx_, std::adopt_lock);
+                if (conn->state_ == pooled_connection_impl::state_t::iddle ||
+                    conn->state_ == pooled_connection_impl::state_t::pending_reset)
+                {
+                    return std::make_pair(conn.get(), std::move(guard));
                 }
-            );
+            }
         }
 
-        // Otherwise, get a not connected connection, which is the most expensive to setup
-        if (it == conns_.end())
+        // Otherwise, get a not connected connection, which is more expensive to setup
+        for (auto& conn : conns_)
         {
-            it = std::find_if(
-                conns_.begin(),
-                conns_.end(),
-                [](const std::unique_ptr<pooled_connection_impl>& conn) {
-                    return !conn->locked_ && conn->state_ == pooled_connection_impl::state_t::not_connected;
+            if (conn->mtx_.try_lock())
+            {
+                boost::sam::lock_guard guard(conn->mtx_, std::adopt_lock);
+                if (conn->state_ == pooled_connection_impl::state_t::not_connected)
+                {
+                    return std::make_pair(conn.get(), std::move(guard));
                 }
-            );
+            }
         }
 
         // No available connection, we need to create one, if limits allow us
-        if (it == conns_.end() && conns_.size() < max_size_)
+        if (conns_.size() < max_size_)
         {
-            add_connection();
-            it = std::prev(conns_.end());
+            auto* res = new pooled_connection_impl(*this);
+            std::unique_ptr<pooled_connection_impl> new_conn(res);
+            boost::sam::lock_guard guard = boost::sam::lock(res->mtx_);
+            conns_.push_back(std::move(new_conn));
+            return std::make_pair(res, std::move(guard));
         }
 
-        return it == conns_.end() ? nullptr : it->get();
+        return std::make_pair(nullptr, boost::sam::lock_guard());
     }
 
     boost::asio::ssl::context ssl_ctx_;

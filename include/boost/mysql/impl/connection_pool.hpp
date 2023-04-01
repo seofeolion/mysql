@@ -9,6 +9,7 @@
 #define BOOST_MYSQL_IMPL_CONNECTION_POOL_HPP
 
 #pragma once
+
 #include <boost/mysql/client_errc.hpp>
 #include <boost/mysql/connection_pool.hpp>
 #include <boost/mysql/diagnostics.hpp>
@@ -40,9 +41,6 @@ namespace detail {
 
 struct initiate_wait
 {
-    // TODO: this should be customizable
-    static constexpr std::chrono::seconds wait_timeout{10};
-
     struct cv_op
     {
         boost::sam::condition_variable& cv;
@@ -63,6 +61,7 @@ struct initiate_wait
         BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
         operator()(CompletionToken&& token)
         {
+            constexpr std::chrono::seconds wait_timeout{10};
             timer->expires_after(wait_timeout);
             return timer->async_wait(std::move(token));
         }
@@ -148,7 +147,8 @@ async_wait_for(boost::sam::condition_variable& cv, CompletionToken&& token)
 }  // namespace boost
 
 boost::mysql::pooled_connection_impl::pooled_connection_impl(connection_pool& p)
-    : pool_(&p),
+    : mtx_(p.get_executor()),
+      pool_(&p),
       conn_(p.get_executor(), p.ssl_ctx_),
       resolver_(p.get_executor()),
       timer_(p.get_executor()),
@@ -167,29 +167,21 @@ void boost::mysql::pooled_connection_impl::cleanup() noexcept
     }
 }
 
+// TODO: this strategy should be customizable
+constexpr std::size_t max_num_tries = 2;
+constexpr std::chrono::milliseconds between_tries{1000};
+
 struct boost::mysql::pooled_connection_impl::setup_op : boost::asio::coroutine
 {
-    struct deleter
-    {
-        void operator()(pooled_connection_impl* conn) const noexcept { conn->locked_ = false; }
-    };
-    using guard = std::unique_ptr<pooled_connection_impl, deleter>;
-
-    // TODO: this strategy should be customizable
-    static constexpr std::size_t max_num_tries = 2;
-    static constexpr std::chrono::milliseconds between_tries{1000};
-
     pooled_connection_impl& conn_;
     diagnostics& diag_;
     std::size_t num_tries_{0};
-    guard g_;
 
-    setup_op(pooled_connection_impl& conn, diagnostics& diag) : conn_(conn), diag_(diag), g_(&conn) {}
+    setup_op(pooled_connection_impl& conn, diagnostics& diag) : conn_(conn), diag_(diag) {}
 
     template <class Self>
     void complete(Self& self, error_code ec)
     {
-        g_.reset();
         self.complete(ec);
     }
 
@@ -213,7 +205,6 @@ struct boost::mysql::pooled_connection_impl::setup_op : boost::asio::coroutine
         BOOST_ASIO_CORO_REENTER(*this)
         {
             assert(conn_.state_ != st_t::in_use);
-            assert(conn_.locked_);
 
             for (;;)
             {
@@ -276,7 +267,36 @@ struct boost::mysql::pooled_connection_impl::setup_op : boost::asio::coroutine
 
                 if (conn_.state_ == st_t::pending_reset)
                 {
-                    // TODO: reset connection not implemented yet
+                    BOOST_ASIO_CORO_YIELD conn_.conn_.async_reset_session(std::move(self));
+                    if (err)
+                    {
+                        // Close the connection as gracefully as we can. Ignoring any errors on purpose
+                        BOOST_ASIO_CORO_YIELD conn_.conn_.async_close(std::move(self));
+
+                        // Recreate the connection, since SSL streams can't be reconnected.
+                        // TODO: we could provide a method to reuse the connection's internal buffers while
+                        // recreating the stream
+                        conn_.conn_ = tcp_ssl_connection(
+                            conn_.resolver_.get_executor(),
+                            conn_.pool_->ssl_ctx_
+                        );
+
+                        // Mark it as initial and retry
+                        conn_.state_ = st_t::not_connected;
+                        if (++num_tries_ >= max_num_tries)
+                        {
+                            complete(self, err);
+                            BOOST_ASIO_CORO_YIELD break;
+                        }
+                        conn_.timer_.expires_after(between_tries);
+                        BOOST_ASIO_CORO_YIELD conn_.timer_.async_wait(std::move(self));
+                        if (err)
+                        {
+                            complete(self, err);
+                            BOOST_ASIO_CORO_YIELD break;
+                        }
+                        continue;
+                    }
                     complete_ok(self);
                     BOOST_ASIO_CORO_YIELD break;
                 }
@@ -322,7 +342,7 @@ struct boost::mysql::pooled_connection_impl::setup_op : boost::asio::coroutine
 };
 
 template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code)) CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(boost::mysql::error_code))
 boost::mysql::pooled_connection_impl::async_setup(diagnostics& diag, CompletionToken&& token)
 {
     return boost::asio::async_compose<CompletionToken, void(error_code)>(
@@ -337,6 +357,7 @@ struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
     connection_pool& pool_;
     diagnostics& diag_;
     pooled_connection_impl* conn_{nullptr};
+    boost::sam::lock_guard conn_guard_;
 
     get_connection_op(connection_pool& pool, diagnostics& diag) noexcept : pool_(pool), diag_(diag) {}
 
@@ -351,28 +372,30 @@ struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
                 BOOST_ASIO_CORO_YIELD boost::sam::async_lock(pool_.mtx_, std::move(self));
                 if (err)
                 {
+                    conn_guard_ = boost::sam::lock_guard();
                     self.complete(err, nullptr);
                     BOOST_ASIO_CORO_YIELD break;
                 }
 
                 // Find a connection we can return to the user
-                conn_ = pool_.find_connection();
+                std::tie(conn_, conn_guard_) = pool_.find_connection();
 
                 if (conn_)
                 {
-                    // Mark the connection as locked
-                    conn_->locked_ = true;
+                    // Unlock the global mutex
                     lockg = boost::sam::lock_guard();
 
                     // Setup code
                     BOOST_ASIO_CORO_YIELD conn_->async_setup(diag_, std::move(self));
                     if (err)
                     {
+                        conn_guard_ = boost::sam::lock_guard();
                         self.complete(err, nullptr);
                         BOOST_ASIO_CORO_YIELD break;
                     }
 
                     // Done
+                    conn_guard_ = boost::sam::lock_guard();
                     self.complete(error_code(), pooled_connection(conn_));
                     BOOST_ASIO_CORO_YIELD break;
                 }
@@ -386,7 +409,10 @@ struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
 
 template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code, ::boost::mysql::pooled_connection))
               CompletionToken>
-BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, pooled_connection))
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(
+    CompletionToken,
+    void(boost::mysql::error_code, boost::mysql::pooled_connection)
+)
 boost::mysql::connection_pool::async_get_connection(diagnostics& diag, CompletionToken&& token)
 {
     return boost::asio::async_compose<CompletionToken, void(error_code, pooled_connection)>(

@@ -28,6 +28,7 @@
 #include <boost/mysql/detail/network_algorithms/query.hpp>
 #include <boost/mysql/detail/network_algorithms/quit_connection.hpp>
 #include <boost/mysql/detail/network_algorithms/read_some_rows.hpp>
+#include <boost/mysql/detail/network_algorithms/reset_session.hpp>
 #include <boost/mysql/detail/network_algorithms/start_query.hpp>
 #include <boost/mysql/detail/network_algorithms/start_statement_execution.hpp>
 
@@ -472,6 +473,30 @@ BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(boost::mysql::error_cod
 boost::mysql::connection<Stream>::async_ping(diagnostics& diag, CompletionToken&& token)
 {
     return detail::async_ping(get_channel(), diag, std::forward<CompletionToken>(token));
+}
+
+// reset session
+template <class Stream>
+void boost::mysql::connection<Stream>::reset_session(error_code& err, diagnostics& diag)
+{
+    detail::clear_errors(err, diag);
+    detail::reset_session(get_channel(), err, diag);
+}
+
+template <class Stream>
+void boost::mysql::connection<Stream>::reset_session()
+{
+    detail::error_block blk;
+    detail::reset_session(get_channel(), blk.err, blk.diag);
+    blk.check(BOOST_CURRENT_LOCATION);
+}
+
+template <class Stream>
+template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code)) CompletionToken>
+BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(boost::mysql::error_code))
+boost::mysql::connection<Stream>::async_reset_session(diagnostics& diag, CompletionToken&& token)
+{
+    return detail::async_reset_session(get_channel(), diag, std::forward<CompletionToken>(token));
 }
 
 // Close

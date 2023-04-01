@@ -152,6 +152,17 @@ struct ping_packet
     }
 };
 
+// reset connection
+struct reset_connection_packet
+{
+    static constexpr std::uint8_t command_id = 0x1f;
+
+    template <class Self, class Callable>
+    static void apply(Self&, Callable&&) noexcept
+    {
+    }
+};
+
 }  // namespace detail
 }  // namespace mysql
 }  // namespace boost

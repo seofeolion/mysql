@@ -30,6 +30,7 @@
 
 #include <chrono>
 #include <memory>
+#include <mutex>
 
 #include "boost/sam/condition_variable.hpp"
 #include "boost/sam/guarded.hpp"
@@ -147,25 +148,11 @@ async_wait_for(boost::sam::condition_variable& cv, CompletionToken&& token)
 }  // namespace boost
 
 boost::mysql::pooled_connection_impl::pooled_connection_impl(connection_pool& p)
-    : mtx_(p.get_executor()),
-      pool_(&p),
-      conn_(p.get_executor(), p.ssl_ctx_),
-      resolver_(p.get_executor()),
-      timer_(p.get_executor()),
-      cleanup_ptr_(this)
+    : pool_(&p), conn_(p.get_executor(), p.ssl_ctx_), resolver_(p.get_executor()), timer_(p.get_executor())
 {
 }
 
-void boost::mysql::pooled_connection_impl::cleanup() noexcept
-{
-    try
-    {
-        pool_->return_connection(*this);
-    }
-    catch (...)
-    {
-    }
-}
+boost::mysql::pooled_connection_impl::~pooled_connection_impl() { pool_->on_connection_destroyed(); }
 
 // TODO: this strategy should be customizable
 constexpr std::size_t max_num_tries = 2;
@@ -356,46 +343,30 @@ struct boost::mysql::connection_pool::get_connection_op : boost::asio::coroutine
 {
     connection_pool& pool_;
     diagnostics& diag_;
-    pooled_connection_impl* conn_{nullptr};
-    boost::sam::lock_guard conn_guard_;
+    std::shared_ptr<pooled_connection_impl> conn_{nullptr};
 
     get_connection_op(connection_pool& pool, diagnostics& diag) noexcept : pool_(pool), diag_(diag) {}
 
     template <class Self>
-    void operator()(Self& self, error_code err = {}, boost::sam::lock_guard lockg = {})
+    void operator()(Self& self, error_code err = {})
     {
         BOOST_ASIO_CORO_REENTER(*this)
         {
             while (true)
             {
-                // Lock
-                BOOST_ASIO_CORO_YIELD boost::sam::async_lock(pool_.mtx_, std::move(self));
-                if (err)
-                {
-                    conn_guard_ = boost::sam::lock_guard();
-                    self.complete(err, nullptr);
-                    BOOST_ASIO_CORO_YIELD break;
-                }
-
                 // Find a connection we can return to the user
-                std::tie(conn_, conn_guard_) = pool_.find_connection();
-
+                conn_ = pool_.find_connection();
                 if (conn_)
                 {
-                    // Unlock the global mutex
-                    lockg = boost::sam::lock_guard();
-
-                    // Setup code
+                    // Setup the connection
                     BOOST_ASIO_CORO_YIELD conn_->async_setup(diag_, std::move(self));
                     if (err)
                     {
-                        conn_guard_ = boost::sam::lock_guard();
-                        self.complete(err, nullptr);
+                        self.complete(err, pooled_connection());
                         BOOST_ASIO_CORO_YIELD break;
                     }
 
                     // Done
-                    conn_guard_ = boost::sam::lock_guard();
                     self.complete(error_code(), pooled_connection(conn_));
                     BOOST_ASIO_CORO_YIELD break;
                 }

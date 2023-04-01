@@ -755,6 +755,7 @@ public:
 
         // Open the acceptor
         tcp::acceptor acceptor(ioc_);
+        // tcp::acceptor acceptor(net::make_strand(ioc_));
         acceptor.open(http_ep_.protocol(), ec);
         if (ec)
             return fail(ec, "open");
@@ -777,6 +778,7 @@ public:
         for (;;)
         {
             tcp::socket socket(ioc_);
+            // tcp::socket socket(net::make_strand(ioc_));
             acceptor.async_accept(socket, yield[ec]);
             if (ec)
                 fail(ec, "accept");

@@ -18,6 +18,7 @@
 #include <boost/asio/any_io_executor.hpp>
 #include <boost/asio/async_result.hpp>
 #include <boost/asio/bind_executor.hpp>
+#include <boost/asio/detached.hpp>
 #include <boost/asio/ssl/context.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/core/ignore_unused.hpp>
@@ -25,6 +26,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <deque>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -72,6 +74,13 @@ public:
     tcp_ssl_connection& get() noexcept { return conn_; }
     const tcp_ssl_connection& get() const noexcept { return conn_; }
 
+    inline pooled_connection_impl(connection_pool& pool);
+    pooled_connection_impl(const pooled_connection_impl&) = delete;
+    pooled_connection_impl(pooled_connection_impl&&) = delete;
+    pooled_connection_impl& operator=(const pooled_connection_impl&) = delete;
+    pooled_connection_impl& operator=(pooled_connection_impl&&) = delete;
+    inline ~pooled_connection_impl();
+
 private:
     enum class state_t
     {
@@ -81,26 +90,15 @@ private:
         pending_reset
     };
 
-    inline pooled_connection_impl(connection_pool& pool);
-
     template <BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code)) CompletionToken>
     BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code))
     async_setup(diagnostics&, CompletionToken&& tok);
 
-    inline void cleanup() noexcept;
-
-    struct deleter
-    {
-        void operator()(pooled_connection_impl* pc) noexcept { pc->cleanup(); }
-    };
-
-    boost::sam::mutex mtx_;
     connection_pool* pool_;
     state_t state_{state_t::not_connected};
     tcp_ssl_connection conn_;
     boost::asio::ip::tcp::resolver resolver_;
     boost::asio::steady_timer timer_;
-    std::unique_ptr<pooled_connection_impl, deleter> cleanup_ptr_;
 
     struct setup_op;
     friend class connection_pool;
@@ -115,23 +113,22 @@ public:
     connection_pool(
         connection_params how_to_connect,
         boost::asio::any_io_executor exec,
-        size_t initial_size,
+        size_t,
         size_t max_size
     )
         : ssl_ctx_(boost::asio::ssl::context::tls_client),
           how_to_connect_(std::move(how_to_connect)),
           max_size_(max_size),
-          timer_(exec),
-          mtx_(exec),
           cv_(exec)
     {
-        for (std::size_t i = 0; i < initial_size; ++i)
-        {
-            add_connection();
-        }
+        // TODO: honor initial_size
+        // for (std::size_t i = 0; i < initial_size; ++i)
+        // {
+        //     add_connection();
+        // }
     }
 
-    boost::asio::any_io_executor get_executor() const { return mtx_.get_executor(); }
+    boost::asio::any_io_executor get_executor() const { return cv_.get_executor(); }
 
     template <
         BOOST_ASIO_COMPLETION_TOKEN_FOR(void(::boost::mysql::error_code, ::boost::mysql::pooled_connection))
@@ -139,89 +136,74 @@ public:
     BOOST_ASIO_INITFN_AUTO_RESULT_TYPE(CompletionToken, void(error_code, pooled_connection))
     async_get_connection(diagnostics& diag, CompletionToken&& token);
 
-    void return_connection(pooled_connection_impl& conn, bool should_reset = true)
+private:
+    std::shared_ptr<pooled_connection_impl> find_connection()
     {
-        using st_t = pooled_connection_impl::state_t;
-        bool ok = conn.mtx_.try_lock();
-        assert(ok);
-        boost::ignore_unused(ok);
+        std::lock_guard<std::mutex> guard(mtx_);
+
+        // If there are available connections, take one
+        if (!iddle_conns_.empty())
         {
-            boost::sam::lock_guard guard(conn.mtx_, std::adopt_lock);
-            conn.state_ = should_reset ? st_t::pending_reset : st_t::in_use;
+            auto conn = iddle_conns_.front();
+            iddle_conns_.pop_front();
+            return conn;
         }
+
+        // If the limit allows us, create a new connection
+        if (num_active_conns_ < max_size_)
+        {
+            auto res = std::make_shared<pooled_connection_impl>(*this);
+            ++num_active_conns_;
+            return res;
+        }
+
+        // No connection available
+        return nullptr;
+    }
+
+    inline void return_connection(std::shared_ptr<pooled_connection_impl> conn)
+    {
+        std::lock_guard<std::mutex> guard(mtx_);
+        conn->state_ = pooled_connection_impl::state_t::pending_reset;
+        iddle_conns_.push_back(std::move(conn));
         cv_.notify_one();
     }
 
-    void add_connection()
+    void on_connection_destroyed()
     {
-        conns_.push_back(std::unique_ptr<pooled_connection_impl>(new pooled_connection_impl(*this)));
+        std::lock_guard<std::mutex> guard(mtx_);
+        --num_active_conns_;
+        cv_.notify_one();
     }
 
-private:
-    std::pair<pooled_connection_impl*, boost::sam::lock_guard> find_connection()
-    {
-        // Prefer iddle or pending reset connections
-        for (auto& conn : conns_)
-        {
-            if (conn->mtx_.try_lock())
-            {
-                boost::sam::lock_guard guard(conn->mtx_, std::adopt_lock);
-                if (conn->state_ == pooled_connection_impl::state_t::iddle ||
-                    conn->state_ == pooled_connection_impl::state_t::pending_reset)
-                {
-                    return std::make_pair(conn.get(), std::move(guard));
-                }
-            }
-        }
-
-        // Otherwise, get a not connected connection, which is more expensive to setup
-        for (auto& conn : conns_)
-        {
-            if (conn->mtx_.try_lock())
-            {
-                boost::sam::lock_guard guard(conn->mtx_, std::adopt_lock);
-                if (conn->state_ == pooled_connection_impl::state_t::not_connected)
-                {
-                    return std::make_pair(conn.get(), std::move(guard));
-                }
-            }
-        }
-
-        // No available connection, we need to create one, if limits allow us
-        if (conns_.size() < max_size_)
-        {
-            auto* res = new pooled_connection_impl(*this);
-            std::unique_ptr<pooled_connection_impl> new_conn(res);
-            boost::sam::lock_guard guard = boost::sam::lock(res->mtx_);
-            conns_.push_back(std::move(new_conn));
-            return std::make_pair(res, std::move(guard));
-        }
-
-        return std::make_pair(nullptr, boost::sam::lock_guard());
-    }
-
+    // Params
     boost::asio::ssl::context ssl_ctx_;
     connection_params how_to_connect_;
     std::size_t max_size_;
-    boost::asio::steady_timer timer_;
-    boost::sam::mutex mtx_;
+
+    // State
+    std::mutex mtx_;
+    std::deque<std::shared_ptr<pooled_connection_impl>> iddle_conns_;
     boost::sam::condition_variable cv_;
-    std::vector<std::unique_ptr<pooled_connection_impl>> conns_;
+    std::size_t num_active_conns_{0};
 
     friend class pooled_connection_impl;
+    friend class pooled_connection;
     struct get_connection_op;
-    struct return_connection_op;
 };
 
 class pooled_connection
 {
-    pooled_connection_impl* impl_{};
+    std::shared_ptr<pooled_connection_impl> impl_{};
 
 public:
     pooled_connection() = default;
-    pooled_connection(pooled_connection_impl* impl) noexcept : impl_(impl) {}
+    pooled_connection(std::shared_ptr<pooled_connection_impl> impl) noexcept : impl_(std::move(impl)) {}
     pooled_connection(const pooled_connection&) = delete;
-    pooled_connection(pooled_connection&& other) noexcept : impl_(other.impl_) { other.impl_ = nullptr; }
+    pooled_connection(pooled_connection&& other) noexcept : impl_(std::move(other.impl_))
+    {
+        other.impl_ = nullptr;
+    }
     pooled_connection& operator=(const pooled_connection&) = delete;
     pooled_connection& operator=(pooled_connection&& other) noexcept
     {
@@ -231,7 +213,10 @@ public:
     ~pooled_connection() noexcept
     {
         if (impl_)
-            impl_->pool_->return_connection(*impl_);
+        {
+            auto* pool = impl_->pool_;
+            pool->return_connection(std::move(impl_));
+        }
     }
     tcp_ssl_connection* operator->() noexcept { return &get(); }
     const tcp_ssl_connection* operator->() const noexcept { return &get(); }

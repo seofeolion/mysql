@@ -12,7 +12,7 @@ include(FetchContent)
 FetchContent_Declare(
   bsam
   GIT_REPOSITORY https://github.com/klemens-morgenstern/sam.git
-  GIT_TAG        a867d1aa7b13e96a9ab0226b867b8e4024a610f0
+  GIT_TAG        7a49db2fbbbcd483642870a4e6a6ef196f6aa77a
 )
 FetchContent_MakeAvailable(bsam)
 

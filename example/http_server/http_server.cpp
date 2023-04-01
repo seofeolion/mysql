@@ -1,10 +1,8 @@
 //
-// Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
+// Copyright (c) 2019-2023 Ruben Perez Hidalgo (rubenperez038 at gmail dot com)
 //
 // Distributed under the Boost Software License, Version 1.0. (See accompanying
 // file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
-//
-// Official repository: https://github.com/boostorg/beast
 //
 
 //------------------------------------------------------------------------------
@@ -40,15 +38,17 @@
 #include <boost/json/object.hpp>
 #include <boost/json/parse.hpp>
 #include <boost/json/value.hpp>
+#include <boost/lexical_cast/try_lexical_convert.hpp>
+#include <boost/optional/optional.hpp>
 #include <boost/url/parse.hpp>
 
 #include <algorithm>
 #include <charconv>
+#include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <memory>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <system_error>
@@ -142,11 +142,11 @@ http::response<http::empty_body> empty_response(const string_request& req)
 // Report a failure
 void fail(beast::error_code ec, char const* what) { std::cerr << what << ": " << ec.message() << "\n"; }
 
-std::optional<std::int64_t> parse_id(string_view from)
+boost::optional<std::int64_t> parse_id(string_view from)
 {
     std::int64_t res;
-    auto [ptr, ec] = std::from_chars(from.data(), from.data() + from.size(), res);
-    if (ec != std::errc() || ptr != from.data() + from.size())
+    bool ok = boost::conversion::try_lexical_convert(from.data(), from.size(), res);
+    if (!ok)
         return {};
     return res;
 }
@@ -171,7 +171,7 @@ public:
               ),
               ioc_.get_executor(),
               1,
-              net::socket_base::max_listen_connections
+              50
           )
     {
     }
@@ -179,7 +179,7 @@ public:
     http::message_generator handle_get_products(
         net::yield_context yield,
         const string_request& req,
-        std::optional<string_view> search
+        string_view search
     )
     {
         mysql::diagnostics diag;
@@ -192,7 +192,7 @@ public:
 
         // Issue the query
         mysql::results result;
-        if (search)
+        if (!search.empty())
         {
             auto stmt = conn->async_prepare_statement(
                 "SELECT id, short_name, descr, price "
@@ -205,7 +205,7 @@ public:
             if (ec)
                 return internal_server_error(req, "preparing statement", ec, diag);
 
-            conn->async_execute_statement(stmt, std::make_tuple(*search), result, diag, yield[ec]);
+            conn->async_execute_statement(stmt, std::make_tuple(search), result, diag, yield[ec]);
             if (ec)
                 return internal_server_error(req, "executing statement", ec, diag);
         }
@@ -660,7 +660,7 @@ public:
                 if (req.method() == http::verb::get)
                 {
                     auto it = params.find("search");
-                    auto search = it == params.end() ? std::optional<string_view>() : (*it).value;
+                    std::string search = it == params.end() ? "" : (*it).value;
                     return handle_get_products(yield, req, search);
                 }
                 else

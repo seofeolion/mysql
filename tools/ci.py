@@ -212,7 +212,9 @@ def _b2_build(
         'variant={}'.format(variant),
         'stdlib={}'.format(stdlib),
         'boost.mysql.separate-compilation={}'.format('on' if separate_compilation else 'off'),
-        'address-sanitizer={}'.format('on' if address_sanitizer else 'off'),
+    ] + (['address-sanitizer=norecover'] if address_sanitizer else [])     # can only be disabled by omitting the arg
+      + (['undefined-sanitizer=norecover'] if undefined_sanitizer else []) # can only be disabled by omitting the arg
+      + [
         'undefined-sanitizer={}'.format('on' if undefined_sanitizer else 'off'),
         'warnings-as-errors=on',
         '-j4',

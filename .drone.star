@@ -21,7 +21,9 @@ def _b2_command(
     stdlib='native',
     address_model='64',
     server_host='localhost',
-    separate_compilation=1
+    separate_compilation=1,
+    address_sanitizer=0,
+    undefined_sanitizer=0
 ):
     return 'python tools/ci.py ' + \
                 '--clean=1 ' + \
@@ -33,7 +35,9 @@ def _b2_command(
                 '--stdlib={} '.format(stdlib) + \
                 '--address-model={} '.format(address_model) + \
                 '--server-host={} '.format(server_host) + \
-                '--separate-compilation={} '.format(separate_compilation)
+                '--separate-compilation={} '.format(separate_compilation) + \
+                '--address-sanitizer={} '.format(address_sanitizer) + \
+                '--undefined-sanitizer={} '.format(undefined_sanitizer)
 
 
 def _cmake_command(
@@ -126,7 +130,9 @@ def linux_b2(
     variant='debug,release',
     stdlib='native',
     arch='amd64',
-    separate_compilation=1
+    separate_compilation=1,
+    address_sanitizer=0,
+    undefined_sanitizer=0
 ):
     command = _b2_command(
         source_dir='$(pwd)',
@@ -135,7 +141,9 @@ def linux_b2(
         variant=variant,
         stdlib=stdlib,
         server_host='mysql',
-        separate_compilation=separate_compilation
+        separate_compilation=separate_compilation,
+        address_sanitizer=address_sanitizer,
+        undefined_sanitizer=undefined_sanitizer
     )
     return _pipeline(
         name=name,
@@ -242,18 +250,20 @@ def main(ctx):
         windows_cmake('Windows CMake shared', build_shared_libs=1),
 
         # B2 Linux
-        linux_b2('Linux B2 clang-3.6',      _image('build-clang3_6'), toolset='clang-3.6', cxxstd='11,14'),
-        linux_b2('Linux B2 clang-7',        _image('build-clang7'),   toolset='clang-7',   cxxstd='14,17'),
-        linux_b2('Linux B2 clang-11',       _image('build-clang11'),  toolset='clang-11',  cxxstd='20'),
-        linux_b2('Linux B2 clang-14',       _image('build-clang14'),  toolset='clang-14',  cxxstd='17,20'),
-        linux_b2('Linux B2 header-only',    _image('build-clang14'),  toolset='clang-14',  cxxstd='20', separate_compilation=0),
-        linux_b2('Linux B2 clang-libc++',   _image('build-clang14'),  toolset='clang-14',  cxxstd='20', stdlib='libc++'),
-        linux_b2('Linux B2 clang-14-arm64', _image('build-clang14'),  toolset='clang-14',  cxxstd='20', arch='arm64'),
-        linux_b2('Linux B2 gcc-5',          _image('build-gcc5'),     toolset='gcc-5',     cxxstd='11'), # gcc-5 C++14 doesn't like my constexpr field_view
-        linux_b2('Linux B2 gcc-6',          _image('build-gcc6'),     toolset='gcc-6',     cxxstd='14,17'),
-        linux_b2('Linux B2 gcc-10',         _image('build-gcc10'),    toolset='gcc-10',    cxxstd='17,20'),
-        linux_b2('Linux B2 gcc-11',         _image('build-gcc11'),    toolset='gcc-11',    cxxstd='17,20'),
-        linux_b2('Linux B2 gcc-11-arm64',   _image('build-gcc11'),    toolset='gcc-11',    cxxstd='20', arch='arm64'),
+        linux_b2('Linux B2 clang-3.6',           _image('build-clang3_6'), toolset='clang-3.6', cxxstd='11,14'),
+        linux_b2('Linux B2 clang-7',             _image('build-clang7'),   toolset='clang-7',   cxxstd='14,17'),
+        linux_b2('Linux B2 clang-11',            _image('build-clang11'),  toolset='clang-11',  cxxstd='20'),
+        linux_b2('Linux B2 clang-14',            _image('build-clang14'),  toolset='clang-14',  cxxstd='17,20'),
+        linux_b2('Linux B2 clang-14 sanitizers', _image('build-clang14'),  toolset='clang-14',  cxxstd='11,20', address_sanitizer=1, undefined_sanitizer=1),
+        linux_b2('Linux B2 header-only',         _image('build-clang14'),  toolset='clang-14',  cxxstd='20', separate_compilation=0),
+        linux_b2('Linux B2 clang-libc++',        _image('build-clang14'),  toolset='clang-14',  cxxstd='20', stdlib='libc++', address_sanitizer=1, undefined_sanitizer=1),
+        linux_b2('Linux B2 clang-14-arm64',      _image('build-clang14'),  toolset='clang-14',  cxxstd='20', arch='arm64'),
+        linux_b2('Linux B2 gcc-5',               _image('build-gcc5'),     toolset='gcc-5',     cxxstd='11'), # gcc-5 C++14 doesn't like my constexpr field_view
+        linux_b2('Linux B2 gcc-6',               _image('build-gcc6'),     toolset='gcc-6',     cxxstd='14,17'),
+        linux_b2('Linux B2 gcc-10',              _image('build-gcc10'),    toolset='gcc-10',    cxxstd='17,20'),
+        linux_b2('Linux B2 gcc-11',              _image('build-gcc11'),    toolset='gcc-11',    cxxstd='17,20'),
+        linux_b2('Linux B2 gcc-11-arm64',        _image('build-gcc11'),    toolset='gcc-11',    cxxstd='20', arch='arm64'),
+        linux_b2('Linux B2 gcc-11 sanitizers',   _image('build-gcc11'),    toolset='gcc-11',    cxxstd='11,20', address_sanitizer=1, undefined_sanitizer=1),
 
         # B2 Windows
         windows_b2('Windows B2 msvc14.1 32-bit', _image('build-msvc14_1'), toolset='msvc-14.1', cxxstd='11,14,17', variant='release',       address_model='32'),

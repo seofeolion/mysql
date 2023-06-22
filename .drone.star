@@ -256,7 +256,7 @@ def main(ctx):
         linux_b2('Linux B2 clang-14',            _image('build-clang14'),  toolset='clang-14',  cxxstd='17,20'),
         linux_b2('Linux B2 clang-14 sanitizers', _image('build-clang14'),  toolset='clang-14',  cxxstd='11,20', address_sanitizer=1, undefined_sanitizer=1),
         linux_b2('Linux B2 header-only',         _image('build-clang14'),  toolset='clang-14',  cxxstd='20', separate_compilation=0),
-        linux_b2('Linux B2 clang-libc++',        _image('build-clang14'),  toolset='clang-14',  cxxstd='20', stdlib='libc++', address_sanitizer=1, undefined_sanitizer=1),
+        linux_b2('Linux B2 clang-libc++',        _image('build-clang14'),  toolset='clang-14',  cxxstd='20', stdlib='libc++', undefined_sanitizer=1), # libc++ triggers asan with exceptions - known issue
         linux_b2('Linux B2 clang-14-arm64',      _image('build-clang14'),  toolset='clang-14',  cxxstd='20', arch='arm64'),
         linux_b2('Linux B2 gcc-5',               _image('build-gcc5'),     toolset='gcc-5',     cxxstd='11'), # gcc-5 C++14 doesn't like my constexpr field_view
         linux_b2('Linux B2 gcc-6',               _image('build-gcc6'),     toolset='gcc-6',     cxxstd='14,17'),

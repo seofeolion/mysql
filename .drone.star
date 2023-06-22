@@ -250,20 +250,21 @@ def main(ctx):
         windows_cmake('Windows CMake shared', build_shared_libs=1),
 
         # B2 Linux
-        linux_b2('Linux B2 clang-3.6',           _image('build-clang3_6'), toolset='clang-3.6', cxxstd='11,14'),
-        linux_b2('Linux B2 clang-7',             _image('build-clang7'),   toolset='clang-7',   cxxstd='14,17'),
-        linux_b2('Linux B2 clang-11',            _image('build-clang11'),  toolset='clang-11',  cxxstd='20'),
-        linux_b2('Linux B2 clang-14',            _image('build-clang14'),  toolset='clang-14',  cxxstd='17,20'),
-        linux_b2('Linux B2 clang-14 sanitizers', _image('build-clang14'),  toolset='clang-14',  cxxstd='11,20', address_sanitizer=1, undefined_sanitizer=1),
-        linux_b2('Linux B2 header-only',         _image('build-clang14'),  toolset='clang-14',  cxxstd='20', separate_compilation=0),
-        linux_b2('Linux B2 clang-libc++',        _image('build-clang14'),  toolset='clang-14',  cxxstd='20', stdlib='libc++', undefined_sanitizer=1), # libc++ triggers asan with exceptions - known issue
-        linux_b2('Linux B2 clang-14-arm64',      _image('build-clang14'),  toolset='clang-14',  cxxstd='20', arch='arm64'),
-        linux_b2('Linux B2 gcc-5',               _image('build-gcc5'),     toolset='gcc-5',     cxxstd='11'), # gcc-5 C++14 doesn't like my constexpr field_view
-        linux_b2('Linux B2 gcc-6',               _image('build-gcc6'),     toolset='gcc-6',     cxxstd='14,17'),
-        linux_b2('Linux B2 gcc-10',              _image('build-gcc10'),    toolset='gcc-10',    cxxstd='17,20'),
-        linux_b2('Linux B2 gcc-11',              _image('build-gcc11'),    toolset='gcc-11',    cxxstd='17,20'),
-        linux_b2('Linux B2 gcc-11-arm64',        _image('build-gcc11'),    toolset='gcc-11',    cxxstd='20', arch='arm64'),
-        linux_b2('Linux B2 gcc-11 sanitizers',   _image('build-gcc11'),    toolset='gcc-11',    cxxstd='11,20', address_sanitizer=1, undefined_sanitizer=1),
+        linux_b2('Linux B2 clang-3.6',                _image('build-clang3_6'), toolset='clang-3.6', cxxstd='11,14'),
+        linux_b2('Linux B2 clang-7',                  _image('build-clang7'),   toolset='clang-7',   cxxstd='14,17'),
+        linux_b2('Linux B2 clang-11',                 _image('build-clang11'),  toolset='clang-11',  cxxstd='20'),
+        linux_b2('Linux B2 clang-14',                 _image('build-clang14'),  toolset='clang-14',  cxxstd='17,20'),
+        linux_b2('Linux B2 clang-14 sanitizers',      _image('build-clang14'),  toolset='clang-14',  cxxstd='17', address_sanitizer=1, undefined_sanitizer=1),
+        linux_b2('Linux B2 header-only',              _image('build-clang14'),  toolset='clang-14',  cxxstd='20', separate_compilation=0),
+        linux_b2('Linux B2 clang-libc++',             _image('build-clang14'),  toolset='clang-14',  cxxstd='20', stdlib='libc++'), # libc++ triggers asan with exceptions - known issue
+        linux_b2('Linux B2 clang-14-arm64',           _image('build-clang14'),  toolset='clang-14',  cxxstd='20', arch='arm64'),
+        linux_b2('Linux B2 gcc-5',                    _image('build-gcc5'),     toolset='gcc-5',     cxxstd='11'), # gcc-5 C++14 doesn't like my constexpr field_view
+        linux_b2('Linux B2 gcc-6',                    _image('build-gcc6'),     toolset='gcc-6',     cxxstd='14,17'),
+        linux_b2('Linux B2 gcc-10',                   _image('build-gcc10'),    toolset='gcc-10',    cxxstd='17,20'),
+        linux_b2('Linux B2 gcc-11',                   _image('build-gcc11'),    toolset='gcc-11',    cxxstd='17,20'),
+        linux_b2('Linux B2 gcc-11 sanitizers',        _image('build-gcc11'),    toolset='gcc-11',    cxxstd='20', variant='release', address_sanitizer=1, undefined_sanitizer=1),
+        linux_b2('Linux B2 gcc-11 arm64 release',     _image('build-gcc11'),    toolset='gcc-11',    cxxstd='20', arch='arm64', variant='release'),
+        linux_b2('Linux B2 gcc-11 arm64 debug sanit', _image('build-gcc11'),    toolset='gcc-11',    cxxstd='20', arch='arm64', variant='debug', address_sanitizer=1, undefined_sanitizer=1),
 
         # B2 Windows
         windows_b2('Windows B2 msvc14.1 32-bit', _image('build-msvc14_1'), toolset='msvc-14.1', cxxstd='11,14,17', variant='release',       address_model='32'),

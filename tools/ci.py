@@ -215,7 +215,6 @@ def _b2_build(
     ] + (['address-sanitizer=norecover'] if address_sanitizer else [])     # can only be disabled by omitting the arg
       + (['undefined-sanitizer=norecover'] if undefined_sanitizer else []) # can only be disabled by omitting the arg
       + [
-        'undefined-sanitizer={}'.format('on' if undefined_sanitizer else 'off'),
         'warnings-as-errors=on',
         '-j4',
         'libs/mysql/test',

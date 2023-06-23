@@ -264,8 +264,10 @@ def main(ctx):
         linux_b2('Linux B2 gcc-6',                _image('build-gcc6'),          toolset='gcc-6',     cxxstd='14,17'),
         linux_b2('Linux B2 gcc-10',               _image('build-gcc10'),         toolset='gcc-10',    cxxstd='17,20'),
         linux_b2('Linux B2 gcc-11',               _image('build-gcc11'),         toolset='gcc-11',    cxxstd='20'),
-        linux_b2('Linux B2 gcc-11-arm64-sanit',   _image('build-gcc11'),         toolset='gcc-11',    cxxstd='20', arch='arm64', address_sanitizer=1, undefined_sanitizer=1),
-        linux_b2('Linux B2 gcc-13-sanit',         _image('build-gcc13'),         toolset='gcc-13',    cxxstd='20', address_sanitizer=1, undefined_sanitizer=1),
+        linux_b2('Linux B2 gcc-11-arm64',         _image('build-gcc11'),         toolset='gcc-11',    cxxstd='11,20', arch='arm64', variant='release'),
+        linux_b2('Linux B2 gcc-11-arm64-sanit',   _image('build-gcc11'),         toolset='gcc-11',    cxxstd='20',    arch='arm64', variant='debug'),
+        linux_b2('Linux B2 gcc-13',               _image('build-gcc13'),         toolset='gcc-13',    cxxstd='20', variant='release'),
+        linux_b2('Linux B2 gcc-13-sanit',         _image('build-gcc13'),         toolset='gcc-13',    cxxstd='20', variant='debug', address_sanitizer=1, undefined_sanitizer=1),
 
         # B2 Windows
         windows_b2('Windows B2 msvc14.1 32-bit', _image('build-msvc14_1'), toolset='msvc-14.1', cxxstd='11,14,17', variant='release',       address_model='32'),

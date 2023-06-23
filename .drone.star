@@ -6,11 +6,15 @@
 #
 
 _triggers = { "branch": [ "master", "develop", "drone*", "feature/*", "bugfix/*", "fix/*", "pr/*" ] }
-_container_tag = '6efce57d289bfa028da8d4a9b50158f1f073984f'
+_container_tag = '315509339bf871dd3f9d9c8e381a6de5a423939f'
+_win_container_tag = '6efce57d289bfa028da8d4a9b50158f1f073984f'
 
 
 def _image(name):
     return 'ghcr.io/anarthal-containers/{}:{}'.format(name, _container_tag)
+
+def _win_image(name):
+    return 'ghcr.io/anarthal-containers/{}:{}'.format(name, _win_container_tag)
 
 
 def _b2_command(
@@ -270,10 +274,10 @@ def main(ctx):
         linux_b2('Linux B2 gcc-13-sanit',         _image('build-gcc13'),         toolset='gcc-13',    cxxstd='20', variant='debug', address_sanitizer=1, undefined_sanitizer=1),
 
         # B2 Windows
-        windows_b2('Windows B2 msvc14.1 32-bit', _image('build-msvc14_1'), toolset='msvc-14.1', cxxstd='11,14,17', variant='release',       address_model='32'),
-        windows_b2('Windows B2 msvc14.1 64-bit', _image('build-msvc14_1'), toolset='msvc-14.1', cxxstd='14,17',    variant='release',       address_model='64'),
-        windows_b2('Windows B2 msvc14.2',        _image('build-msvc14_2'), toolset='msvc-14.2', cxxstd='14,17',    variant='release',       address_model='64'),
-        windows_b2('Windows B2 msvc14.3',        _image('build-msvc14_3'), toolset='msvc-14.3', cxxstd='17,20',    variant='debug,release', address_model='64'),
+        windows_b2('Windows B2 msvc14.1 32-bit', _win_image('build-msvc14_1'), toolset='msvc-14.1', cxxstd='11,14,17', variant='release',       address_model='32'),
+        windows_b2('Windows B2 msvc14.1 64-bit', _win_image('build-msvc14_1'), toolset='msvc-14.1', cxxstd='14,17',    variant='release',       address_model='64'),
+        windows_b2('Windows B2 msvc14.2',        _win_image('build-msvc14_2'), toolset='msvc-14.2', cxxstd='14,17',    variant='release',       address_model='64'),
+        windows_b2('Windows B2 msvc14.3',        _win_image('build-msvc14_3'), toolset='msvc-14.3', cxxstd='17,20',    variant='debug,release', address_model='64'),
 
         # Docs
         docs()

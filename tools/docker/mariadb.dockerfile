@@ -10,8 +10,9 @@ FROM mariadb:11.0
 ENV MYSQL_ALLOW_EMPTY_PASSWORD=1
 ENV MYSQL_ROOT_PASSWORD=
 
-COPY tools/docker/mysql_entrypoint.sh /
+COPY tools/docker/mariadb_entrypoint.sh /
+COPY tools/docker/unix-socket.cnf /etc/mysql/conf.d/
 COPY tools/docker/ssl.cnf /etc/mysql/conf.d/
 COPY tools/ssl/*.pem /etc/ssl/certs/mysql/
 
-ENTRYPOINT ["/bin/bash", "/mysql_entrypoint.sh"]
+ENTRYPOINT ["/bin/bash", "/mariadb_entrypoint.sh"]

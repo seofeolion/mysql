@@ -126,6 +126,7 @@ def linux_b2(
     variant='debug,release',
     stdlib='native',
     arch='amd64',
+    address_model='64',
     separate_compilation=1
 ):
     command = _b2_command(
@@ -134,6 +135,7 @@ def linux_b2(
         cxxstd=cxxstd,
         variant=variant,
         stdlib=stdlib,
+        address_model=address_model,
         server_host='mysql',
         separate_compilation=separate_compilation
     )

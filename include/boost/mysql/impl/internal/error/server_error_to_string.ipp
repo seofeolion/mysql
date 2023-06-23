@@ -2185,6 +2185,16 @@ const char* boost::mysql::detail::mariadb_error_to_string(int v) noexcept
     case 4180: return "er_with_ties_needs_order";
     case 4181: return "er_removed_orphan_trigger";
     case 4182: return "er_storage_engine_disabled";
+    case 4183: return "warn_sformat_error";
+    case 4184: return "er_partition_convert_subpartitioned";
+    case 4185: return "er_provider_not_loaded";
+    case 4186: return "er_json_histogram_parse_failed";
+    case 4187: return "er_sf_out_inout_arg_not_allowed";
+    case 4188: return "er_inconsistent_slave_temp_table";
+    case 4189: return "er_vers_hist_part_failed";
+    case 4190: return "warn_option_changing";
+    case 4191: return "er_cm_option_missing_requirement";
+    case 4192: return "er_slave_statement_timeout";
 
     default: return "<unknown MariaDB-specific server error>";
     }

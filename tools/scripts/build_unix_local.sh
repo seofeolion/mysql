@@ -21,6 +21,7 @@ docker start $CONTAINER || docker run -dit \
     -v ~/workspace/mysql:/opt/boost-mysql \
     -v /var/run/mysqld:/var/run/mysqld \
     $FULL_IMAGE
+docker network connect my-net $DB || echo "DB already connected"
 docker network connect my-net $CONTAINER || echo "Network already connected"
 docker exec $CONTAINER python /opt/boost-mysql/tools/ci.py --source-dir=/opt/boost-mysql \
     --build-kind=$BK \
@@ -30,6 +31,8 @@ docker exec $CONTAINER python /opt/boost-mysql/tools/ci.py --source-dir=/opt/boo
     --clean=0 \
     --toolset=gcc-13 \
     --address-model=64 \
+    --address-sanitizer=1 \
+    --undefined-sanitizer=1 \
     --cxxstd=20 \
     --variant=debug \
     --separate-compilation=1 \

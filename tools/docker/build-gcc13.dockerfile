@@ -20,6 +20,5 @@ RUN \
         git \
         cmake \
         mysql-client && \
-    unlink /usr/bin/gcc && \
     ln -s /usr/bin/g++-13 /usr/bin/g++ && \
     ln -s /usr/bin/gcc-13 /usr/bin/gcc
